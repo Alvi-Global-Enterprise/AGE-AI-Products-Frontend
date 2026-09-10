@@ -38,10 +38,10 @@ export function attachInterceptors(client) {
       const status = appError.status
 
       if (isAuthError(appError)) {
-        clearAllTokens()
-        if (!path.startsWith('/auth')) {
-          window.location.assign('/auth')
-        }
+        // clearAllTokens()
+        // if (!path.startsWith('/auth')) {
+        //   window.location.assign('/auth')
+        // }
       } else if (status === 403 && code === 'InvalidTokenException') {
         if (!path.includes('verify-otp')) {
           window.location.assign('/auth/verify-otp')

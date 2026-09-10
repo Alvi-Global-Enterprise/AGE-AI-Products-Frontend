@@ -37,3 +37,21 @@ export function useUpdateClient() {
     onError: (e) => handleError(e, { context: 'clients.update' }),
   })
 }
+
+export function useDeleteClient() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => clientsApi.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: clientsKeys.all }),
+    onError: (e) => handleError(e, { context: 'clients.delete' }),
+  })
+}
+
+export function useClientStats(options = {}) {
+  return useQuery({
+    queryKey: clientsKeys.stats(),
+    queryFn: () => clientsApi.stats(),
+    select: (res) => res.data ?? res,
+    ...options,
+  })
+}

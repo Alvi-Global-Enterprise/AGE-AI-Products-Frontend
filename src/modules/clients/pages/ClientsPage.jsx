@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Formik, Form } from 'formik'
-import { Plus, Search, Users } from 'lucide-react'
+import { Plus, Search, Users, Trash2, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/shared/components/ui/Card'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Button } from '@/shared/components/ui/Button'
@@ -9,7 +10,13 @@ import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { FormikAuthField } from '@/modules/auth/components/FormikAuthField'
 import { FormikSelect } from '@/modules/auth/components/FormikSelect'
 import { FormikPhoneField } from '@/shared/components/FormikPhoneField'
-import { useClients, useCreateClient, useUpdateClient } from '@/modules/clients/hooks/useClients'
+import {
+  useClients,
+  useCreateClient,
+  useUpdateClient,
+  useDeleteClient,
+  useClientStats,
+} from '@/modules/clients/hooks/useClients'
 import { clientSchema, clientInitialValues } from '@/modules/clients/validation/client.schema'
 import { PREFERRED_CHANNELS, RISK_TIERS, CURRENCIES } from '@/shared/constants/config'
 import { AppError } from '@/shared/errors/AppError'
@@ -132,10 +139,18 @@ function ClientFormModal({ open, onClose, client }) {
 }
 
 export default function ClientsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
-  const [risk, setRisk] = useState('')
+  const [risk, setRisk] = useState(searchParams.get('risk_tier') || '')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('risk_tier') || ''
+    if (fromUrl !== risk) setRisk(fromUrl)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const filters = useMemo(
     () => ({
@@ -146,6 +161,28 @@ export default function ClientsPage() {
   )
 
   const { data: clients = [], isLoading, isError, error, refetch } = useClients(filters)
+  const { data: stats, isLoading: statsLoading } = useClientStats()
+  const deleteClient = useDeleteClient()
+
+  const onRiskChange = (value) => {
+    setRisk(value)
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set('risk_tier', value)
+    else next.delete('risk_tier')
+    setSearchParams(next, { replace: true })
+  }
+
+  const handleDelete = async (client) => {
+    if (!window.confirm(`Delete client “${client.name}”? This cannot be undone.`)) return
+    setDeletingId(client.id)
+    try {
+      await deleteClient.mutateAsync(client.id)
+    } catch {
+      /* hook handles toast */
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -167,6 +204,36 @@ export default function ClientsPage() {
         </Button>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: 'Clients', value: stats?.total_clients ?? '—' },
+          {
+            label: 'Outstanding',
+            value: stats ? formatCurrency(stats.total_outstanding || 0) : '—',
+          },
+          {
+            label: 'Recovered',
+            value: stats ? formatCurrency(stats.total_recovered || 0) : '—',
+          },
+          { label: 'Avg days to pay', value: stats?.average_days_to_pay ?? '—' },
+        ].map((item) => (
+          <Card key={item.label}>
+            <CardContent className="p-4">
+              {statsLoading ? (
+                <Skeleton className="h-12 rounded-lg" />
+              ) : (
+                <>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">{item.value}</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
@@ -180,7 +247,7 @@ export default function ClientsPage() {
           </div>
           <select
             value={risk}
-            onChange={(e) => setRisk(e.target.value)}
+            onChange={(e) => onRiskChange(e.target.value)}
             className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
           >
             <option value="">All risk tiers</option>
@@ -248,8 +315,8 @@ export default function ClientsPage() {
                   {[client.company_name, client.email, client.phone].filter(Boolean).join(' · ')}
                 </p>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="mr-1 text-right">
                   <p className="text-xs text-slate-400">Outstanding</p>
                   <p className="text-sm font-semibold text-slate-800">
                     {formatCurrency(client.total_outstanding || 0)}
@@ -263,6 +330,20 @@ export default function ClientsPage() {
                   }}
                 >
                   Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-slate-400 hover:text-rose-600"
+                  disabled={deletingId === client.id || deleteClient.isPending}
+                  onClick={() => handleDelete(client)}
+                  aria-label={`Delete ${client.name}`}
+                >
+                  {deletingId === client.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </CardContent>

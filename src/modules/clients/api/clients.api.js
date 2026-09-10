@@ -95,10 +95,60 @@ export const clientsApi = {
     const { data } = await axiosClient.put(`/api/clients/${id}`, payload)
     return data
   },
+
+  async remove(id) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(350)
+      mockStore = mockStore.filter((c) => String(c.id) !== String(id))
+      return { message: 'Client deleted successfully.' }
+    }
+    const { data } = await axiosClient.delete(`/api/clients/${id}`)
+    return data
+  },
+
+  /** GET /api/clients/stats */
+  async stats() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(300)
+      return {
+        data: {
+          total_clients: mockStore.length,
+          total_outstanding: mockStore.reduce((s, c) => s + (c.total_outstanding || 0), 0),
+          total_recovered: mockStore.reduce((s, c) => s + (c.total_recovered || 0), 0),
+          average_days_to_pay: 18,
+          risk_breakdown: {
+            low: mockStore.filter((c) => c.risk_tier === 'low').length || 1,
+            medium: mockStore.filter((c) => c.risk_tier === 'medium').length,
+            high: mockStore.filter((c) => c.risk_tier === 'high').length,
+          },
+          channel_breakdown: {
+            auto: 0,
+            email: mockStore.filter((c) => c.preferred_channel === 'email').length || 1,
+            sms: mockStore.filter((c) => c.preferred_channel === 'sms').length,
+            whatsapp: mockStore.filter((c) => c.preferred_channel === 'whatsapp').length,
+          },
+          top_high_risk_clients: mockStore
+            .filter((c) => c.risk_tier === 'high' || (c.ai_late_risk_score || 0) >= 70)
+            .slice(0, 5)
+            .map((c) => ({
+              id: c.id,
+              name: c.name,
+              company_name: c.company_name,
+              total_outstanding: c.total_outstanding,
+              ai_late_risk_score: c.ai_late_risk_score,
+              effective_channel: c.effective_channel,
+            })),
+        },
+      }
+    }
+    const { data } = await axiosClient.get('/api/clients/stats')
+    return data
+  },
 }
 
 export const clientsKeys = {
   all: ['clients'],
   list: (filters) => [...clientsKeys.all, 'list', filters ?? {}],
   detail: (id) => [...clientsKeys.all, 'detail', id],
+  stats: () => [...clientsKeys.all, 'stats'],
 }
