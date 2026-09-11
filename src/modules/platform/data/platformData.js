@@ -39,7 +39,6 @@ export const PLATFORM_NAV = [
   { id: 'operator', label: 'Operator Queue', path: '/app/operator', icon: 'Headphones' },
   { id: 'clients', label: 'Clients', path: '/app/clients', icon: 'Users' },
   { id: 'billing', label: 'Billing', path: '/app/billing', icon: 'CreditCard' },
-  { id: 'integrations', label: 'Integrations', path: '/app/integrations', icon: 'Puzzle' },
   { id: 'settings', label: 'Tenant Settings', path: '/app/settings', icon: 'Settings' },
 ]
 

@@ -178,11 +178,23 @@ export const billingApi = {
 
   /** GET /api/billing/transactions */
   async getTransactions(params = {}) {
+    const query = {
+      page: Number(params.page) || 1,
+      per_page: Number(params.per_page) || 15,
+      ...params,
+    }
     if (APP_CONFIG.useMockApi) {
       await delay(300)
-      return MOCK_TRANSACTIONS
+      return {
+        ...MOCK_TRANSACTIONS,
+        meta: {
+          ...MOCK_TRANSACTIONS.meta,
+          current_page: query.page,
+          per_page: query.per_page,
+        },
+      }
     }
-    const { data } = await axiosClient.get('/api/billing/transactions', { params })
+    const { data } = await axiosClient.get('/api/billing/transactions', { params: query })
     return data
   },
 

@@ -6,9 +6,118 @@ import {
   CASH_FLOW_FORECAST,
   AI_PREDICTIONS,
   ACTIVITY_FEED,
-  INVOICES,
   BILLING_SUMMARY,
 } from '@/products/duewise/data/duewiseData'
+
+const MOCK_INVOICES = [
+  {
+    id: 101,
+    tenant_id: 'tenant-demo',
+    client_id: 1,
+    number: 'INV-2026-001',
+    currency: 'usd',
+    issue_date: '2026-09-01',
+    due_date: '2026-09-15',
+    subtotal: 5000,
+    tax_total: 0,
+    total: 5000,
+    amount_paid: 0,
+    balance_due: 5000,
+    status: 'open',
+    days_overdue: 0,
+    aging_bucket: 'current',
+    paid_at: null,
+    is_overdue_recovered: false,
+    recovered_at: null,
+    quickbooks_id: 'QB-INV-5001',
+    ai_predicted_late_probability: 18.5,
+    ai_predicted_payment_date: '2026-09-15',
+    created_at: '2026-09-01T10:00:00.000000Z',
+    updated_at: '2026-09-01T10:00:00.000000Z',
+    client: { id: 1, name: 'Acme Corp Ltd', email: 'billing@acmecorp.com', phone: '+15552345678' },
+  },
+  {
+    id: 102,
+    tenant_id: 'tenant-demo',
+    client_id: 1,
+    number: 'INV-2026-002',
+    currency: 'usd',
+    issue_date: '2026-08-01',
+    due_date: '2026-08-15',
+    subtotal: 2200,
+    tax_total: 0,
+    total: 2200,
+    amount_paid: 0,
+    balance_due: 2200,
+    status: 'overdue',
+    days_overdue: 26,
+    aging_bucket: '1-30',
+    paid_at: null,
+    is_overdue_recovered: false,
+    recovered_at: null,
+    quickbooks_id: null,
+    ai_predicted_late_probability: 62,
+    ai_predicted_payment_date: '2026-09-20',
+    created_at: '2026-08-01T10:00:00.000000Z',
+    updated_at: '2026-08-01T10:00:00.000000Z',
+    client: { id: 1, name: 'Acme Corp Ltd', email: 'billing@acmecorp.com', phone: '+15552345678' },
+  },
+  {
+    id: 103,
+    tenant_id: 'tenant-demo',
+    client_id: 1,
+    number: 'INV-2026-003',
+    currency: 'usd',
+    issue_date: '2026-07-01',
+    due_date: '2026-07-15',
+    subtotal: 980,
+    tax_total: 0,
+    total: 980,
+    amount_paid: 980,
+    balance_due: 0,
+    status: 'paid',
+    days_overdue: 0,
+    aging_bucket: 'current',
+    paid_at: '2026-07-12T00:00:00.000000Z',
+    is_overdue_recovered: false,
+    recovered_at: null,
+    quickbooks_id: 'QB-INV-5003',
+    ai_predicted_late_probability: 5,
+    ai_predicted_payment_date: '2026-07-12',
+    created_at: '2026-07-01T10:00:00.000000Z',
+    updated_at: '2026-07-12T10:00:00.000000Z',
+    client: { id: 1, name: 'Acme Corp Ltd', email: 'billing@acmecorp.com', phone: '+15552345678' },
+  },
+]
+
+let mockInvoices = [...MOCK_INVOICES]
+
+function paginate(items, params = {}) {
+  const page = Math.max(1, Number(params.page) || 1)
+  const perPage = Math.max(1, Number(params.per_page) || 15)
+  const total = items.length
+  const lastPage = Math.max(1, Math.ceil(total / perPage))
+  const start = (page - 1) * perPage
+  const slice = items.slice(start, start + perPage)
+  return {
+    data: slice,
+    links: {
+      first: null,
+      last: null,
+      prev: page > 1 ? String(page - 1) : null,
+      next: page < lastPage ? String(page + 1) : null,
+    },
+    meta: {
+      current_page: page,
+      from: total === 0 ? null : start + 1,
+      last_page: lastPage,
+      path: '/api/duewise/invoices',
+      per_page: perPage,
+      to: total === 0 ? null : Math.min(start + perPage, total),
+      total,
+    },
+  }
+}
 
 export const duewiseApi = {
   async getDashboard() {
@@ -26,26 +135,181 @@ export const duewiseApi = {
     return data
   },
 
+  /**
+   * GET /api/duewise/invoices
+   * Query: client_id, status, aging_bucket, search, per_page, page
+   */
   async getInvoices(params = {}) {
+    const query = {
+      page: Number(params.page) || 1,
+      per_page: Number(params.per_page) || 15,
+      ...params,
+    }
     if (APP_CONFIG.useMockApi) {
       await delay(400)
-      return { data: INVOICES, items: INVOICES, total: INVOICES.length, ...params }
+      let items = [...mockInvoices]
+      if (query.client_id) {
+        items = items.filter((i) => String(i.client_id) === String(query.client_id))
+      }
+      if (query.status) {
+        items = items.filter((i) => i.status === query.status)
+      }
+      if (query.aging_bucket) {
+        items = items.filter((i) => i.aging_bucket === query.aging_bucket)
+      }
+      if (query.search) {
+        const q = String(query.search).toLowerCase()
+        items = items.filter(
+          (i) =>
+            i.number?.toLowerCase().includes(q) ||
+            i.client?.name?.toLowerCase().includes(q)
+        )
+      }
+      return paginate(items, query)
     }
-    const { data } = await axiosClient.get('/api/invoices', { params })
+    const { data } = await axiosClient.get('/api/duewise/invoices', { params: query })
     return data
   },
 
+  async getInvoice(id) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(300)
+      const found = mockInvoices.find((i) => String(i.id) === String(id))
+      if (!found) return { data: null }
+      return {
+        data: {
+          ...found,
+          line_items: found.line_items || [
+            {
+              id: 1,
+              description: 'Professional services',
+              quantity: 1,
+              unit_amount: found.total,
+              total_amount: found.total,
+            },
+          ],
+        },
+      }
+    }
+    const { data } = await axiosClient.get(`/api/duewise/invoices/${id}`)
+    return data
+  },
+
+  /** POST /api/duewise/invoices */
   async createInvoice(payload) {
     if (APP_CONFIG.useMockApi) {
       await delay(600)
+      const lineItems = payload.line_items || []
+      const subtotal = lineItems.reduce(
+        (sum, item) => sum + Number(item.quantity || 1) * Number(item.unit_amount || 0),
+        0
+      )
+      const taxTotal = lineItems.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0)
+      const created = {
+        id: Date.now(),
+        tenant_id: 'tenant-demo',
+        client_id: payload.client_id,
+        number: payload.number || `INV-MOCK-${Date.now()}`,
+        currency: payload.currency || 'usd',
+        issue_date: payload.issue_date || new Date().toISOString().slice(0, 10),
+        due_date:
+          payload.due_date ||
+          new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+        subtotal,
+        tax_total: taxTotal,
+        total: subtotal + taxTotal,
+        amount_paid: 0,
+        balance_due: subtotal + taxTotal,
+        status: 'open',
+        days_overdue: 0,
+        aging_bucket: 'current',
+        paid_at: null,
+        is_overdue_recovered: false,
+        recovered_at: null,
+        quickbooks_id: null,
+        ai_predicted_late_probability: null,
+        ai_predicted_payment_date: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        line_items: lineItems,
+        client: { id: payload.client_id, name: `Client #${payload.client_id}` },
+      }
+      mockInvoices = [created, ...mockInvoices]
+      return { data: created }
+    }
+    const { data } = await axiosClient.post('/api/duewise/invoices', payload)
+    return data
+  },
+
+  /** PUT /api/duewise/invoices/{id} */
+  async updateInvoice(id, payload) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(500)
+      mockInvoices = mockInvoices.map((inv) =>
+        String(inv.id) === String(id)
+          ? { ...inv, ...payload, updated_at: new Date().toISOString() }
+          : inv
+      )
+      const found = mockInvoices.find((i) => String(i.id) === String(id))
+      return { data: found }
+    }
+    const { data } = await axiosClient.put(`/api/duewise/invoices/${id}`, payload)
+    return data
+  },
+
+  /** DELETE /api/duewise/invoices/{id} */
+  async deleteInvoice(id) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      mockInvoices = mockInvoices.filter((i) => String(i.id) !== String(id))
+      return { message: 'Invoice deleted successfully.' }
+    }
+    const { data } = await axiosClient.delete(`/api/duewise/invoices/${id}`)
+    return data
+  },
+
+  /** POST /api/duewise/invoices/{id}/mark-as-paid */
+  async markInvoicePaid(id, payload = {}) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      mockInvoices = mockInvoices.map((inv) =>
+        String(inv.id) === String(id)
+          ? {
+              ...inv,
+              status: 'paid',
+              amount_paid: inv.total,
+              balance_due: 0,
+              paid_at: payload.paid_at || new Date().toISOString(),
+              days_overdue: 0,
+              is_overdue_recovered: inv.days_overdue > 0,
+              updated_at: new Date().toISOString(),
+            }
+          : inv
+      )
+      const found = mockInvoices.find((i) => String(i.id) === String(id))
+      return { data: found }
+    }
+    const { data } = await axiosClient.post(`/api/duewise/invoices/${id}/mark-as-paid`, payload)
+    return data
+  },
+
+  /** POST /api/duewise/invoices/{id}/remind */
+  async remindInvoice(id, payload = {}) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(700)
+      const channel = payload.channel && payload.channel !== 'auto' ? payload.channel : 'whatsapp'
       return {
-        ...payload,
-        id: `INV-${Math.floor(2000 + Math.random() * 8000)}`,
-        status: 'unpaid',
-        qbSync: 'pending',
+        message: `Payment reminder dispatched successfully via ${channel}.`,
+        data: {
+          log_id: Date.now(),
+          channel,
+          recipient: '+15559876543',
+          status: 'delivered',
+          tracking_token: 'mock-tracking-token',
+        },
       }
     }
-    const { data } = await axiosClient.post('/products/duewise/invoices', payload)
+    const { data } = await axiosClient.post(`/api/duewise/invoices/${id}/remind`, payload)
     return data
   },
 
@@ -83,7 +347,7 @@ export const duewiseApi = {
   },
 
   /**
-   * GET /api/duewise/quickbooks/status
+   * POST /api/duewise/quickbooks/status
    * Returns connection + sync state for the current tenant.
    */
   async getQuickBooksStatus() {
@@ -101,11 +365,45 @@ export const duewiseApi = {
     const { data } = await axiosClient.get('/api/duewise/quickbooks/status')
     return data
   },
+
+  /**
+   * POST /api/duewise/quickbooks/sync
+   * On-demand sync: customers → clients, invoices, payment statuses.
+   */
+  async syncQuickBooks({ full = false } = {}) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(1800)
+      return {
+        message: 'QuickBooks sync completed successfully.',
+        data: {
+          customers_synced: 12,
+          invoices_synced: 28,
+          payments_synced: 4,
+        },
+      }
+    }
+    const { data } = await axiosClient.post('/api/duewise/quickbooks/sync', { full })
+    return data
+  },
+
+  /**
+   * POST /api/duewise/quickbooks/disconnect
+   * Disconnects the current tenant from QuickBooks Online.
+   */
+  async disconnectQuickBooks() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      return { data: { is_connected: false } }
+    }
+    const { data } = await axiosClient.post('/api/duewise/quickbooks/disconnect')
+    return data
+  },
 }
 
 export const duewiseKeys = {
   all: ['duewise'],
   dashboard: () => [...duewiseKeys.all, 'dashboard'],
   invoices: (filters) => [...duewiseKeys.all, 'invoices', filters ?? {}],
+  invoice: (id) => [...duewiseKeys.all, 'invoice', id],
   quickbooksStatus: () => [...duewiseKeys.all, 'quickbooks', 'status'],
 }

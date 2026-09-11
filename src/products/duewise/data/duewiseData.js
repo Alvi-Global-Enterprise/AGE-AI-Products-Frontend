@@ -326,6 +326,12 @@ export const DUEWISE_PRODUCT = {
     { id: 'insights', label: 'AI Insights', path: '/products/duewise/insights', icon: 'Sparkles' },
     { id: 'cashflow', label: 'Cash Flow', path: '/products/duewise/cashflow', icon: 'TrendingUp' },
     { id: 'sequences', label: 'Sequences', path: '/products/duewise/sequences', icon: 'GitBranch' },
+    {
+      id: 'integrations',
+      label: 'Integrations',
+      path: '/products/duewise/integrations',
+      icon: 'Puzzle',
+    },
     { id: 'settings', label: 'Settings', path: '/products/duewise/settings', icon: 'Settings' },
   ],
 }

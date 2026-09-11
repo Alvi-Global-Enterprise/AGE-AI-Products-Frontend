@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AppShell } from '@/shared/components/layout/AppShell'
 import { AuthGuard, GuestGuard } from '@/app/guards/AuthGuard'
 import { ProductSubscriptionGuard } from '@/app/guards/ProductSubscriptionGuard'
@@ -15,6 +15,8 @@ import SubscribePage from '@/modules/billing/pages/SubscribePage'
 import ProfilePage from '@/modules/auth/pages/ProfilePage'
 import DashboardPage from '@/products/duewise/pages/DashboardPage'
 import InvoicesPage from '@/products/duewise/pages/InvoicesPage'
+import InvoiceDetailPage from '@/products/duewise/pages/InvoiceDetailPage'
+import IntegrationsPage from '@/products/duewise/pages/IntegrationsPage'
 
 function ProtectedLayout({ children }) {
   return (
@@ -30,6 +32,12 @@ function ProductLayout({ product, children }) {
       <ProductSubscriptionGuard product={product}>{children}</ProductSubscriptionGuard>
     </ProtectedLayout>
   )
+}
+
+/** Keep OAuth query (?code&realmId&state) when moving legacy integrations URLs. */
+function RedirectIntegrations() {
+  const { search } = useLocation()
+  return <Navigate to={`/products/duewise/integrations${search}`} replace />
 }
 
 export default function App() {
@@ -104,14 +112,6 @@ export default function App() {
           }
         />
         <Route
-          path="/app/integrations"
-          element={
-            <ProtectedLayout>
-              <PlaceholderPage type="integrations" />
-            </ProtectedLayout>
-          }
-        />
-        <Route
           path="/app/settings"
           element={
             <ProtectedLayout>
@@ -133,6 +133,22 @@ export default function App() {
           element={
             <ProductLayout product="duewise">
               <InvoicesPage />
+            </ProductLayout>
+          }
+        />
+        <Route
+          path="/products/duewise/invoices/:id"
+          element={
+            <ProductLayout product="duewise">
+              <InvoiceDetailPage />
+            </ProductLayout>
+          }
+        />
+        <Route
+          path="/products/duewise/integrations"
+          element={
+            <ProductLayout product="duewise">
+              <IntegrationsPage />
             </ProductLayout>
           }
         />
@@ -172,7 +188,8 @@ export default function App() {
         <Route path="/dashboard" element={<Navigate to="/products/duewise" replace />} />
         <Route path="/invoices" element={<Navigate to="/products/duewise/invoices" replace />} />
         <Route path="/login" element={<Navigate to="/auth" replace />} />
-        <Route path="/integrations" element={<Navigate to="/app/integrations" replace />} />
+        <Route path="/app/integrations" element={<RedirectIntegrations />} />
+        <Route path="/integrations" element={<RedirectIntegrations />} />
         <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
         <Route path="/products/:productId" element={<Navigate to="/app" replace />} />
 

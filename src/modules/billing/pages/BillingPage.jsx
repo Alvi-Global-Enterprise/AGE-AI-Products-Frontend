@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Button } from '@/shared/components/ui/Button'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { PaginationControls } from '@/shared/components/ui/PaginationControls'
 import {
   useBillingPlans,
   useBillingTransactions,
@@ -41,14 +42,24 @@ function money(amount, currency = 'USD') {
   }
 }
 
-function trialLabel(endsAt) {
+/** Whole calendar days remaining until expiry (local date), from trial_ends_at. */
+function daysUntilExpiry(endsAt) {
   if (!endsAt) return null
   const end = new Date(endsAt)
-  const days = Math.ceil((end.getTime() - Date.now()) / 86400000)
-  if (Number.isNaN(days)) return null
+  if (Number.isNaN(end.getTime())) return null
+  const now = new Date()
+  const startOfToday = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfEnd = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+  return Math.round((startOfEnd - startOfToday) / 86400000)
+}
+
+function trialLabel(endsAt) {
+  const days = daysUntilExpiry(endsAt)
+  if (days == null) return null
   if (days < 0) return 'Trial ended'
-  if (days === 0) return 'Trial ends today'
-  return `${days} day${days === 1 ? '' : 's'} left`
+  if (days === 0) return 'Expires today'
+  if (days === 1) return 'Expires in 1 day'
+  return `Expires in ${days} days`
 }
 
 function statusBadge(status) {
@@ -61,27 +72,65 @@ function statusBadge(status) {
   return map[status] || 'bg-slate-100 text-slate-600'
 }
 
+function isCanceledSubscription(sub) {
+  if (!sub) return false
+  if (sub.is_canceled) return true
+  const status = String(sub.stripe_status || '').toLowerCase()
+  return status === 'canceled' || status === 'cancelled'
+}
+
+function parseDate(value) {
+  if (!value) return null
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/**
+ * Normalize billing overview into UI state.
+ * Canceled subs still return current_subscription — must not enable Cancel.
+ */
 function getBillingActions(overview, trialExpired) {
+  const sub = overview?.current_subscription || null
   const subscribed = Boolean(overview?.is_subscribed)
   const onTrial = Boolean(overview?.on_trial)
-  const cancelPending = Boolean(overview?.current_subscription?.cancel_at_period_end)
-  const canCancel =
-    (subscribed || onTrial || Boolean(overview?.current_subscription)) && !cancelPending
+  const canceled = isCanceledSubscription(sub)
+  const cancelPending = Boolean(sub?.cancel_at_period_end) && !canceled
+  const endsAt = parseDate(sub?.ends_at)
+  const accessUntil = endsAt && endsAt.getTime() > Date.now() ? endsAt : null
+  const endedAt = endsAt && endsAt.getTime() <= Date.now() ? endsAt : null
+
+  const canCancel = (subscribed || onTrial) && !canceled && !cancelPending
 
   const showTrialCta =
-    Boolean(overview?.trial_enabled) && !subscribed && !onTrial && !trialExpired
+    Boolean(overview?.trial_enabled) && !subscribed && !onTrial && !trialExpired && !canceled
 
   let primary = null
   if (showTrialCta) {
     primary = { kind: 'trial', label: 'Start free trial' }
-  } else if (!subscribed) {
+  } else if (!subscribed && !onTrial) {
     primary = {
       kind: 'subscribe',
-      label: onTrial ? 'Upgrade to paid' : 'Subscribe',
+      label: canceled ? 'Resubscribe' : 'Subscribe',
     }
+  } else if (onTrial && !subscribed) {
+    primary = { kind: 'subscribe', label: 'Upgrade to paid' }
   }
 
-  return { primary, canCancel, showTrialCta, subscribed, onTrial }
+  const planKey = overview?.current_plan || (!subscribed && canceled ? sub?.plan_key : null) || null
+
+  return {
+    primary,
+    canCancel,
+    showTrialCta,
+    subscribed,
+    onTrial,
+    canceled,
+    cancelPending,
+    accessUntil,
+    endedAt,
+    planKey,
+    sub,
+  }
 }
 
 function lowestPrice(plans = []) {
@@ -114,16 +163,23 @@ export default function BillingPage() {
     refetch: refetchDetail,
   } = useBillingPlans(selectedProduct)
 
+  const [subscribeOpen, setSubscribeOpen] = useState(false)
+  const [subscribeIntent, setSubscribeIntent] = useState('subscribe')
+  const [subscribePlan, setSubscribePlan] = useState(null)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [txPageNum, setTxPageNum] = useState(1)
+
   const txParams = useMemo(
     () =>
       selectedProduct
-        ? { product: selectedProduct, per_page: 15 }
-        : { per_page: 15 },
-    [selectedProduct]
+        ? { product: selectedProduct, page: txPageNum, per_page: 15 }
+        : { page: txPageNum, per_page: 15 },
+    [selectedProduct, txPageNum]
   )
   const {
     data: txPage,
     isLoading: txLoading,
+    isFetching: txFetching,
     isError: txError,
     error: txErr,
     refetch: refetchTx,
@@ -131,19 +187,22 @@ export default function BillingPage() {
 
   const cancel = useCancelSubscription()
 
-  const [subscribeOpen, setSubscribeOpen] = useState(false)
-  const [subscribeIntent, setSubscribeIntent] = useState('subscribe')
-  const [subscribePlan, setSubscribePlan] = useState(null)
-  const [cancelOpen, setCancelOpen] = useState(false)
-
   const overview = selectedProduct ? productDetails?.[0] : null
   const plans = useMemo(
     () => (overview?.plans || []).filter((p) => p.is_active !== false),
     [overview]
   )
   const transactions = txPage?.data || []
+  const txMeta = txPage?.meta || {}
   const sub = overview?.current_subscription
-  const trialDays = overview?.trial_days || plans[0]?.trial_days || 7
+  const trialDays = (() => {
+    if (!overview?.trial_enabled) return 0
+    const fromProduct = Number(overview?.trial_days)
+    if (Number.isFinite(fromProduct) && fromProduct > 0) return fromProduct
+    const fromPlan = Number(plans[0]?.trial_days)
+    if (Number.isFinite(fromPlan) && fromPlan > 0) return fromPlan
+    return 0
+  })()
   const trialText = trialLabel(overview?.trial_ends_at || sub?.trial_ends_at)
 
   const trialExpired =
@@ -153,12 +212,27 @@ export default function BillingPage() {
 
   const actions = overview
     ? getBillingActions(overview, trialExpired)
-    : { primary: null, canCancel: false, showTrialCta: false, subscribed: false, onTrial: false }
+    : {
+        primary: null,
+        canCancel: false,
+        showTrialCta: false,
+        subscribed: false,
+        onTrial: false,
+        canceled: false,
+        cancelPending: false,
+        accessUntil: null,
+        endedAt: null,
+        planKey: null,
+        sub: null,
+      }
 
-  const currentPlan = plans.find((p) => p.plan_key === overview?.current_plan)
+  const currentPlan = plans.find(
+    (p) => p.plan_key === (actions.planKey || overview?.current_plan)
+  )
 
   const selectProduct = (productSlug) => {
     setSearchParams(productSlug ? { product: productSlug } : {})
+    setTxPageNum(1)
   }
 
   const openSubscribe = (intent, planKey) => {
@@ -226,12 +300,16 @@ export default function BillingPage() {
                 {catalog.map((item) => {
                   const from = lowestPrice(item.plans)
                   const planCount = (item.plans || []).filter((p) => p.is_active !== false).length
+                  const remaining = item.on_trial
+                    ? trialLabel(item.trial_ends_at || item.current_subscription?.trial_ends_at)
+                    : null
+                  const canceled = isCanceledSubscription(item.current_subscription)
                   return (
                     <button
                       key={item.product}
                       type="button"
                       onClick={() => selectProduct(item.product)}
-                      className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md"
+                      className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
@@ -243,20 +321,25 @@ export default function BillingPage() {
                         {item.product_name || item.product}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {item.is_subscribed && (
+                        {item.is_subscribed && !canceled && (
                           <Badge className="bg-emerald-50 text-emerald-700">Subscribed</Badge>
                         )}
                         {item.on_trial && (
-                          <Badge className="bg-teal-50 text-teal-700">On trial</Badge>
+                          <Badge className="bg-teal-50 text-teal-700">
+                            {remaining || 'On trial'}
+                          </Badge>
                         )}
-                        {!item.is_subscribed && !item.on_trial && (
+                        {canceled && !item.is_subscribed && (
+                          <Badge className="bg-rose-50 text-rose-700">Canceled</Badge>
+                        )}
+                        {!item.is_subscribed && !item.on_trial && !canceled && (
                           <Badge variant="secondary">Available</Badge>
                         )}
                       </div>
                       <p className="mt-3 text-xs text-slate-500">
                         {planCount} plan{planCount === 1 ? '' : 's'}
                         {from != null ? ` · from ${money(from)}/mo` : ''}
-                        {item.trial_enabled && item.trial_days
+                        {!item.on_trial && item.trial_enabled && item.trial_days
                           ? ` · ${item.trial_days}-day trial`
                           : ''}
                       </p>
@@ -304,47 +387,84 @@ export default function BillingPage() {
                         {overview.product_name || selectedProduct}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {overview.on_trial && (
+                        {actions.onTrial && (
                           <Badge className="bg-teal-50 text-teal-700">
                             <Clock3 className="mr-1 h-3 w-3" />
-                            Free trial
+                            {trialText || 'Free trial'}
                           </Badge>
                         )}
-                        {overview.is_subscribed && (
+                        {actions.subscribed && !actions.canceled && (
                           <Badge className="bg-emerald-50 text-emerald-700">
                             <ShieldCheck className="mr-1 h-3 w-3" />
                             Active subscription
                           </Badge>
                         )}
-                        {!overview.is_subscribed && !overview.on_trial && (
+                        {actions.canceled && (
+                          <Badge className="bg-rose-50 text-rose-700">Canceled</Badge>
+                        )}
+                        {!actions.subscribed &&
+                          !actions.onTrial &&
+                          !actions.canceled && (
+                            <Badge variant="secondary">
+                              {trialExpired ? 'Trial ended' : 'No active plan'}
+                            </Badge>
+                          )}
+                        {(actions.planKey || overview.current_plan) && (
                           <Badge variant="secondary">
-                            {trialExpired ? 'Trial ended' : 'No active plan'}
+                            {currentPlan?.name ||
+                              actions.planKey ||
+                              overview.current_plan}
+                            {actions.canceled ? ' · previous' : ''}
                           </Badge>
                         )}
-                        {overview.current_plan && (
-                          <Badge variant="secondary">
-                            {currentPlan?.name || overview.current_plan}
-                          </Badge>
-                        )}
-                        {sub?.stripe_status && (
-                          <Badge variant="secondary">{sub.stripe_status}</Badge>
-                        )}
-                        {sub?.cancel_at_period_end && (
+                        {actions.cancelPending && (
                           <Badge className="bg-amber-50 text-amber-700">
                             Cancels at period end
                           </Badge>
                         )}
+                        {sub?.stripe_status &&
+                          !actions.canceled &&
+                          !actions.subscribed &&
+                          !actions.onTrial && (
+                            <Badge variant="secondary">{sub.stripe_status}</Badge>
+                          )}
                       </div>
 
-                      {overview.on_trial && trialText && (
+                      {actions.onTrial && (overview.trial_ends_at || sub?.trial_ends_at) && (
                         <p className="mt-3 text-sm text-slate-600">
-                          <span className="font-medium text-slate-800">{trialText}</span>
-                          {overview.trial_ends_at && (
-                            <span className="text-slate-400">
-                              {' '}
-                              · ends {new Date(overview.trial_ends_at).toLocaleString()}
-                            </span>
-                          )}
+                          <span className="font-medium text-slate-800">
+                            {trialText ||
+                              trialLabel(overview.trial_ends_at || sub?.trial_ends_at)}
+                          </span>
+                          <span className="text-slate-400">
+                            {' '}
+                            · ends{' '}
+                            {new Date(
+                              overview.trial_ends_at || sub.trial_ends_at
+                            ).toLocaleString()}
+                          </span>
+                        </p>
+                      )}
+                      {actions.canceled && actions.accessUntil && (
+                        <p className="mt-3 text-sm text-slate-600">
+                          Access continues until{' '}
+                          <span className="font-medium text-slate-800">
+                            {actions.accessUntil.toLocaleString()}
+                          </span>
+                        </p>
+                      )}
+                      {actions.canceled && actions.endedAt && (
+                        <p className="mt-3 text-sm text-slate-600">
+                          Ended{' '}
+                          <span className="font-medium text-slate-800">
+                            {actions.endedAt.toLocaleString()}
+                          </span>
+                          . Subscribe again to restore access.
+                        </p>
+                      )}
+                      {actions.canceled && !actions.accessUntil && !actions.endedAt && (
+                        <p className="mt-3 text-sm text-slate-600">
+                          Subscription canceled. Subscribe again to restore access.
                         </p>
                       )}
                       {actions.showTrialCta && (
@@ -353,7 +473,7 @@ export default function BillingPage() {
                           subscription.
                         </p>
                       )}
-                      {trialExpired && !overview.is_subscribed && (
+                      {trialExpired && !overview.is_subscribed && !actions.canceled && (
                         <p className="mt-3 max-w-lg text-sm text-amber-800">
                           Your free trial has ended. Subscribe to restore access.
                         </p>
@@ -362,6 +482,17 @@ export default function BillingPage() {
                   </div>
 
                   <div className="flex w-full flex-col gap-2 sm:max-w-xs">
+                    {actions.primary && (
+                      <Button
+                        className="w-full"
+                        onClick={() =>
+                          openSubscribe(actions.primary.kind, plans[0]?.plan_key)
+                        }
+                      >
+                        {actions.primary.kind === 'trial' && <Gift className="h-4 w-4" />}
+                        {actions.primary.label}
+                      </Button>
+                    )}
                     {actions.canCancel && (
                       <Button variant="outline" className="w-full" onClick={openCancel}>
                         Cancel plan
@@ -385,7 +516,12 @@ export default function BillingPage() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {plans.map((plan) => {
-                  const current = overview?.current_plan === plan.plan_key
+                  const current =
+                    Boolean(actions.subscribed || actions.onTrial) &&
+                    !actions.canceled &&
+                    (overview?.current_plan || sub?.plan_key) === plan.plan_key
+                  const wasPrevious =
+                    actions.canceled && sub?.plan_key === plan.plan_key
                   return (
                     <Card
                       key={plan.plan_key}
@@ -399,6 +535,9 @@ export default function BillingPage() {
                           </div>
                           {current && (
                             <Badge className="bg-emerald-50 text-emerald-700">Current</Badge>
+                          )}
+                          {wasPrevious && (
+                            <Badge className="bg-rose-50 text-rose-700">Previous</Badge>
                           )}
                         </div>
                         <p className="text-2xl font-bold text-slate-900">
@@ -443,15 +582,17 @@ export default function BillingPage() {
                               <Gift className="h-4 w-4" />
                               Start free trial
                             </Button>
-                          ) : !actions.subscribed ? (
+                          ) : !actions.subscribed || actions.canceled ? (
                             <Button
                               className="w-full"
-                              variant={current ? 'default' : 'secondary'}
+                              variant={wasPrevious ? 'default' : 'secondary'}
                               onClick={() => openSubscribe('subscribe', plan.plan_key)}
                             >
-                              {actions.onTrial
-                                ? `Upgrade · ${plan.name}`
-                                : `Subscribe · ${plan.name}`}
+                              {actions.canceled
+                                ? `Resubscribe · ${plan.name}`
+                                : actions.onTrial
+                                  ? `Upgrade · ${plan.name}`
+                                  : `Subscribe · ${plan.name}`}
                             </Button>
                           ) : (
                             <Button
@@ -559,6 +700,12 @@ export default function BillingPage() {
                       ))}
                     </tbody>
                   </table>
+                  <PaginationControls
+                    meta={txMeta}
+                    page={txPageNum}
+                    onPageChange={setTxPageNum}
+                    isFetching={txFetching}
+                  />
                 </CardContent>
               </Card>
             )}

@@ -34,14 +34,46 @@ const MOCK_CLIENTS = [
 
 let mockStore = [...MOCK_CLIENTS]
 
+function paginateClients(items, params = {}) {
+  const page = Math.max(1, Number(params.page) || 1)
+  const perPage = Math.max(1, Number(params.per_page) || 15)
+  const total = items.length
+  const lastPage = Math.max(1, Math.ceil(total / perPage) || 1)
+  const start = (page - 1) * perPage
+  const slice = items.slice(start, start + perPage)
+  return {
+    data: slice,
+    links: {
+      first: null,
+      last: null,
+      prev: page > 1 ? String(page - 1) : null,
+      next: page < lastPage ? String(page + 1) : null,
+    },
+    meta: {
+      current_page: page,
+      from: total === 0 ? null : start + 1,
+      last_page: lastPage,
+      path: '/api/clients',
+      per_page: perPage,
+      to: total === 0 ? null : Math.min(start + perPage, total),
+      total,
+    },
+  }
+}
+
 export const clientsApi = {
   async list(params = {}) {
+    const query = {
+      page: Number(params.page) || 1,
+      per_page: Number(params.per_page) || 15,
+      ...params,
+    }
     if (APP_CONFIG.useMockApi) {
       await delay(350)
       let items = [...mockStore]
-      if (params.risk_tier) items = items.filter((c) => c.risk_tier === params.risk_tier)
-      if (params.search) {
-        const q = params.search.toLowerCase()
+      if (query.risk_tier) items = items.filter((c) => c.risk_tier === query.risk_tier)
+      if (query.search) {
+        const q = String(query.search).toLowerCase()
         items = items.filter(
           (c) =>
             c.name?.toLowerCase().includes(q) ||
@@ -49,9 +81,9 @@ export const clientsApi = {
             c.email?.toLowerCase().includes(q)
         )
       }
-      return { data: items }
+      return paginateClients(items, query)
     }
-    const { data } = await axiosClient.get('/api/clients', { params })
+    const { data } = await axiosClient.get('/api/clients', { params: query })
     return data
   },
 

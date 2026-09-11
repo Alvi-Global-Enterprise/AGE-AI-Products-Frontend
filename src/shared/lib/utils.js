@@ -6,23 +6,24 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
-/** Format USD currency for display. */
+/** Format currency for display. */
 export function formatCurrency(amount, opts = {}) {
-  const { compact = false } = opts
+  const { compact = false, currency = 'USD' } = opts
+  const code = String(currency || 'USD').toUpperCase()
   if (compact && Math.abs(amount) >= 1000) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: code,
       notation: 'compact',
       maximumFractionDigits: 1,
-    }).format(amount)
+    }).format(amount || 0)
   }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: code,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+    maximumFractionDigits: 2,
+  }).format(amount || 0)
 }
 
 /** Relative time helper for sync badges and activity feeds. */

@@ -3,7 +3,6 @@ import { KPICards } from '@/products/duewise/components/dashboard/KPICards'
 import { CashFlowChart } from '@/products/duewise/components/dashboard/CashFlowChart'
 import { AIPaymentPrediction } from '@/products/duewise/components/dashboard/AIPaymentPrediction'
 import { ChannelTracker } from '@/products/duewise/components/dashboard/ChannelTracker'
-import { QuickBooksBanner } from '@/products/duewise/components/dashboard/QuickBooksBanner'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { useDuewiseDashboard } from '@/products/duewise/hooks/useDuewise'
 import { useAppSelector } from '@/app/store/hooks'
@@ -59,7 +58,6 @@ export default function DashboardPage() {
       </motion.div>
 
       <KPICards />
-      <QuickBooksBanner />
 
       <div className="grid items-stretch gap-6 xl:grid-cols-5">
         <div className="xl:col-span-3">

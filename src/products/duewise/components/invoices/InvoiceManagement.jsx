@@ -1,47 +1,88 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
-  Mail,
-  Smartphone,
-  MessageSquare,
   CheckCircle2,
-  RefreshCw,
   AlertCircle,
   Clock,
-  X,
-  Filter,
+  Loader2,
+  Trash2,
+  Pencil,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Avatar } from '@/components/ui/Skeleton'
-import { Tooltip } from '@/components/ui/Tooltip'
-import { Modal } from '@/components/ui/Modal'
-import { formatCurrency, cn } from '@/lib/utils'
-import { INVOICES } from '@/data/mockData'
+import { Card, CardContent } from '@/shared/components/ui/Card'
+import { Badge } from '@/shared/components/ui/Badge'
+import { Button } from '@/shared/components/ui/Button'
+import { Avatar } from '@/shared/components/ui/Skeleton'
+import { Tooltip } from '@/shared/components/ui/Tooltip'
+import { Modal } from '@/shared/components/ui/Modal'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { formatCurrency, cn } from '@/shared/lib/utils'
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+import { ClientSearchSelect } from '@/shared/components/FormikClientSelect'
+import { useClientsOptions } from '@/modules/clients/hooks/useClients'
+import {
+  useInvoices,
+  useDeleteInvoice,
+  useMarkInvoicePaid,
+} from '@/products/duewise/hooks/useDuewise'
+import { EditInvoiceModal } from '@/products/duewise/components/invoices/EditInvoiceModal'
+import {
+  formatInvoiceStatus,
+  invoiceStatusBadgeVariant,
+} from '@/products/duewise/constants/invoiceStatus'
+import { AppError } from '@/shared/errors/AppError'
+import { getUserMessage } from '@/shared/errors/errorHandler'
 
-const TABS = [
-  { id: 'all', label: 'All' },
-  { id: 'paid', label: 'Paid' },
-  { id: 'unpaid', label: 'Unpaid' },
-  { id: 'overdue', label: 'Overdue' },
+const STATUS_TABS = [
+  { id: 'all', label: 'All', status: null },
+  { id: 'open', label: 'Open', status: 'open' },
+  { id: 'sent', label: 'Sent', status: 'sent' },
+  { id: 'overdue', label: 'Overdue', status: 'overdue' },
+  { id: 'paid', label: 'Paid', status: 'paid' },
+  { id: 'draft', label: 'Draft', status: 'draft' },
 ]
 
-const CHANNEL_ICON = {
-  email: Mail,
-  sms: Smartphone,
-  whatsapp: MessageSquare,
+const PER_PAGE = 15
+
+function initialsFromName(name = '') {
+  return String(name)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('') || '?'
 }
 
-const FILTER_TAGS = ['enterprise', 'priority', 'saas', 'agency', 'retail', 'healthcare', 'logistics']
+function SyncBadge({ quickbooksId }) {
+  if (quickbooksId) {
+    return (
+      <Tooltip content={`QuickBooks ID: ${quickbooksId}`}>
+        <Badge variant="synced">
+          <CheckCircle2 className="h-3 w-3" /> Synced
+        </Badge>
+      </Tooltip>
+    )
+  }
+  return (
+    <Tooltip content="Not synced to QuickBooks yet">
+      <Badge variant="pending">
+        <Clock className="h-3 w-3" /> Pending
+      </Badge>
+    </Tooltip>
+  )
+}
 
-function StatusTabs({ active, onChange, counts }) {
+function StatusTabs({ active, onChange }) {
   return (
     <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/80 p-1">
-      {TABS.map((tab) => (
+      {STATUS_TABS.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onChange(tab.id)}
           className={cn(
             'relative flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition cursor-pointer',
@@ -56,156 +97,107 @@ function StatusTabs({ active, onChange, counts }) {
             />
           )}
           <span className="relative z-10">{tab.label}</span>
-          <span
-            className={cn(
-              'relative z-10 rounded-md px-1.5 py-0.5 text-[10px] font-semibold',
-              active === tab.id ? 'bg-slate-100 text-slate-700' : 'bg-slate-200/60 text-slate-500'
-            )}
-          >
-            {counts[tab.id]}
-          </span>
         </button>
       ))}
     </div>
   )
 }
 
-function SyncBadge({ status }) {
-  if (status === 'synced') {
-    return (
-      <Tooltip content="Synced with QuickBooks">
-        <Badge variant="synced">
-          <CheckCircle2 className="h-3 w-3" /> Synced
-        </Badge>
-      </Tooltip>
-    )
-  }
-  if (status === 'pending') {
-    return (
-      <Tooltip content="Sync in progress">
-        <Badge variant="pending">
-          <Clock className="h-3 w-3" /> Pending
-        </Badge>
-      </Tooltip>
-    )
-  }
-  return (
-    <Tooltip content="QuickBooks sync error — retry">
-      <Badge variant="error">
-        <AlertCircle className="h-3 w-3" /> Error
-      </Badge>
-    </Tooltip>
-  )
-}
-
 export function InvoiceManagement() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState('all')
   const [query, setQuery] = useState('')
-  const [activeTags, setActiveTags] = useState([])
-  const [invoices, setInvoices] = useState(INVOICES)
+  const [clientId, setClientId] = useState('')
+  const [page, setPage] = useState(1)
   const [toast, setToast] = useState(null)
   const [confirmPaid, setConfirmPaid] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [editInvoiceId, setEditInvoiceId] = useState(null)
 
-  const counts = useMemo(
-    () => ({
-      all: invoices.length,
-      paid: invoices.filter((i) => i.status === 'paid').length,
-      unpaid: invoices.filter((i) => i.status === 'unpaid').length,
-      overdue: invoices.filter((i) => i.status === 'overdue').length,
-    }),
-    [invoices]
-  )
+  const debouncedSearch = useDebouncedValue(query.trim(), 400)
+  const statusFilter = STATUS_TABS.find((t) => t.id === tab)?.status || null
 
-  const filtered = useMemo(() => {
-    return invoices.filter((inv) => {
-      if (tab !== 'all' && inv.status !== tab) return false
-      if (query) {
-        const q = query.toLowerCase()
-        if (
-          !inv.client.toLowerCase().includes(q) &&
-          !inv.id.toLowerCase().includes(q) &&
-          !inv.email.toLowerCase().includes(q)
-        ) {
-          return false
-        }
-      }
-      if (activeTags.length > 0 && !activeTags.every((t) => inv.tags.includes(t))) {
-        return false
-      }
-      return true
-    })
-  }, [invoices, tab, query, activeTags])
+  const filters = useMemo(() => {
+    const params = { page, per_page: PER_PAGE }
+    if (statusFilter) params.status = statusFilter
+    if (clientId) params.client_id = Number(clientId)
+    if (debouncedSearch) params.search = debouncedSearch
+    return params
+  }, [page, statusFilter, clientId, debouncedSearch])
 
-  const toggleTag = (tag) => {
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    )
-  }
+  const { data, isLoading, isFetching, isError, error, refetch } = useInvoices(filters)
+  const { data: clients = [] } = useClientsOptions()
+  const markPaid = useMarkInvoicePaid()
+  const deleteInvoice = useDeleteInvoice()
+
+  const invoices = data?.data ?? []
+  const meta = data?.meta ?? {}
+  const currentPage = meta.current_page || page
+  const lastPage = meta.last_page || 1
+  const total = meta.total ?? invoices.length
+
+  const clientsById = useMemo(() => {
+    const map = new Map()
+    clients.forEach((c) => map.set(String(c.id), c))
+    return map
+  }, [clients])
 
   const showToast = (message) => {
     setToast(message)
     setTimeout(() => setToast(null), 2800)
   }
 
-  const markPaid = (id) => {
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === id ? { ...inv, status: 'paid', overdueDays: 0, paidAt: new Date().toISOString() } : inv
-      )
-    )
-    setConfirmPaid(null)
-    showToast(`${id} marked as paid`)
-  }
+  const resetToFirstPage = () => setPage(1)
+
+  const clientName = (inv) =>
+    inv.client?.name || clientsById.get(String(inv.client_id))?.name || `Client #${inv.client_id}`
+
+  const clientEmail = (inv) =>
+    inv.client?.email || clientsById.get(String(inv.client_id))?.email || ''
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <StatusTabs active={tab} onChange={setTab} counts={counts} />
+        <StatusTabs
+          active={tab}
+          onChange={(id) => {
+            setTab(id)
+            resetToFirstPage()
+          }}
+        />
 
-        <div className="relative w-full lg:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search client or invoice…"
-            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15"
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:max-w-xl">
+          <div className="relative min-w-0 flex-1 lg:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                resetToFirstPage()
+              }}
+              placeholder="Search number or client…"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15"
+            />
+            {isFetching && (
+              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+            )}
+          </div>
+          <ClientSearchSelect
+            className="shrink-0 sm:w-44"
+            value={clientId}
+            clients={clients}
+            onChange={(id) => {
+              setClientId(id)
+              resetToFirstPage()
+            }}
           />
         </div>
-      </div>
-
-      {/* Multi-tag filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
-          <Filter className="h-3.5 w-3.5" /> Filters:
-        </span>
-        {FILTER_TAGS.map((tag) => (
-          <button
-            key={tag}
-            onClick={() => toggleTag(tag)}
-            className={cn(
-              'rounded-lg px-2.5 py-1 text-xs font-medium capitalize transition cursor-pointer',
-              activeTags.includes(tag)
-                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
-                : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'
-            )}
-          >
-            {tag}
-          </button>
-        ))}
-        {activeTags.length > 0 && (
-          <button
-            onClick={() => setActiveTags([])}
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
-          >
-            <X className="h-3 w-3" /> Clear
-          </button>
-        )}
       </div>
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[900px] text-left">
+            <table className="w-full min-w-[960px] text-left">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -221,7 +213,7 @@ export function InvoiceManagement() {
                     Status
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    AI Channel
+                    Aging
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     QuickBooks
@@ -232,93 +224,197 @@ export function InvoiceManagement() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout">
-                  {filtered.map((inv, i) => {
-                    const ChannelIcon = CHANNEL_ICON[inv.channel]
-                    return (
-                      <motion.tr
-                        key={inv.id}
-                        layout
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ delay: i * 0.03, duration: 0.25 }}
-                        className="group border-b border-slate-50 transition hover:bg-emerald-50/30"
+                {isLoading &&
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`sk-${i}`} className="border-b border-slate-50">
+                      <td className="px-4 py-3.5" colSpan={7}>
+                        <Skeleton className="h-10 w-full rounded-lg" />
+                      </td>
+                    </tr>
+                  ))}
+
+                {!isLoading && isError && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <p className="text-sm text-rose-600">{getUserMessage(error)}</p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => refetch()}
                       >
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <Avatar initials={inv.avatar} size="sm" colorIndex={i} />
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">{inv.client}</p>
-                              <p className="text-[11px] text-slate-400">{inv.email}</p>
+                        Retry
+                      </Button>
+                    </td>
+                  </tr>
+                )}
+
+                <AnimatePresence mode="popLayout">
+                  {!isLoading &&
+                    !isError &&
+                    invoices.map((inv, i) => {
+                      const name = clientName(inv)
+                      const email = clientEmail(inv)
+                      return (
+                        <motion.tr
+                          key={inv.id}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ delay: Math.min(i * 0.02, 0.2), duration: 0.2 }}
+                          className="group cursor-pointer border-b border-slate-50 transition hover:bg-emerald-50/30"
+                          onClick={() => navigate(`/products/duewise/invoices/${inv.id}`)}
+                        >
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar initials={initialsFromName(name)} size="sm" colorIndex={i} />
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">{name}</p>
+                                {email && (
+                                  <p className="text-[11px] text-slate-400">{email}</p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p className="text-sm font-medium text-slate-800">{inv.id}</p>
-                          <p className="text-[11px] text-slate-400">Due {inv.dueDate}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p className="text-sm font-semibold text-slate-900">
-                            {formatCurrency(inv.amount)}
-                          </p>
-                          {inv.overdueDays > 0 && (
-                            <p className="text-[11px] font-medium text-rose-600">
-                              {inv.overdueDays}d overdue
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <p className="text-sm font-medium text-emerald-700 underline-offset-2 group-hover:underline">
+                              {inv.number}
                             </p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <Badge variant={inv.status} className="capitalize">
-                            {inv.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <Badge variant={inv.channel}>
-                            <ChannelIcon className="h-3 w-3" />
-                            {inv.channel}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <SyncBadge status={inv.qbSync} />
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5 opacity-80 transition group-hover:opacity-100">
-                            {inv.status !== 'paid' && (
-                              <Tooltip content="Manual mark as paid">
+                            <p className="text-[11px] text-slate-400">Due {inv.due_date}</p>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {formatCurrency(inv.total ?? inv.balance_due, {
+                                currency: inv.currency,
+                              })}
+                            </p>
+                            {inv.days_overdue > 0 && (
+                              <p className="text-[11px] font-medium text-rose-600">
+                                {inv.days_overdue}d overdue
+                              </p>
+                            )}
+                            {inv.balance_due != null && inv.balance_due !== inv.total && (
+                              <p className="text-[11px] text-slate-400">
+                                Due{' '}
+                                {formatCurrency(inv.balance_due, { currency: inv.currency })}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <Badge
+                              variant={invoiceStatusBadgeVariant(inv.status)}
+                              className="capitalize"
+                            >
+                              {formatInvoiceStatus(inv.status)}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="text-xs font-medium text-slate-600">
+                              {inv.aging_bucket || '—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <SyncBadge quickbooksId={inv.quickbooks_id} />
+                          </td>
+                          <td
+                            className="px-4 py-3.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1.5 opacity-80 transition group-hover:opacity-100">
+                              <Tooltip content="View details">
                                 <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => setConfirmPaid(inv)}
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() =>
+                                    navigate(`/products/duewise/invoices/${inv.id}`)
+                                  }
                                 >
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span className="hidden xl:inline">Paid</span>
+                                  <Eye className="h-3.5 w-3.5" />
                                 </Button>
                               </Tooltip>
-                            )}
-                            {inv.qbSync === 'error' && (
-                              <Tooltip content="Retry QuickBooks sync">
-                                <Button variant="outline" size="icon">
-                                  <RefreshCw className="h-3.5 w-3.5" />
+                              <Tooltip content="Edit invoice">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => setEditInvoiceId(inv.id)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
                                 </Button>
                               </Tooltip>
-                            )}
-                          </div>
-                        </td>
-                      </motion.tr>
-                    )
-                  })}
+                              {inv.status !== 'paid' && (
+                                <Tooltip content="Mark as paid">
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setConfirmPaid(inv)}
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    <span className="hidden xl:inline">Paid</span>
+                                  </Button>
+                                </Tooltip>
+                              )}
+                              <Tooltip content="Delete invoice">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => setConfirmDelete(inv)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                </Button>
+                              </Tooltip>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      )
+                    })}
                 </AnimatePresence>
               </tbody>
             </table>
 
-            {filtered.length === 0 && (
+            {!isLoading && !isError && invoices.length === 0 && (
               <div className="px-4 py-16 text-center">
                 <p className="text-sm font-medium text-slate-600">No invoices match your filters</p>
-                <p className="mt-1 text-xs text-slate-400">Try adjusting search or clearing tags</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Try clearing search, status, or client filters
+                </p>
               </div>
             )}
           </div>
+
+          {!isLoading && !isError && total > 0 && (
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">
+                Showing {meta.from ?? 0}–{meta.to ?? 0} of {total}
+                {isFetching ? ' · Updating…' : ''}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentPage <= 1 || isFetching}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Prev
+                </Button>
+                <span className="min-w-[4.5rem] text-center text-xs font-medium text-slate-600">
+                  Page {currentPage} / {lastPage}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentPage >= lastPage || isFetching}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -328,7 +424,7 @@ export function InvoiceManagement() {
         title="Mark as paid?"
         description={
           confirmPaid
-            ? `Confirm payment received for ${confirmPaid.id} — ${confirmPaid.client} (${formatCurrency(confirmPaid.amount)}).`
+            ? `Confirm payment for ${confirmPaid.number} — ${clientName(confirmPaid)} (${formatCurrency(confirmPaid.balance_due ?? confirmPaid.total, { currency: confirmPaid.currency })}).`
             : ''
         }
         size="sm"
@@ -337,9 +433,75 @@ export function InvoiceManagement() {
           <Button variant="secondary" onClick={() => setConfirmPaid(null)}>
             Cancel
           </Button>
-          <Button onClick={() => markPaid(confirmPaid.id)}>Confirm Paid</Button>
+          <Button
+            disabled={markPaid.isPending}
+            onClick={async () => {
+              try {
+                await markPaid.mutateAsync({ id: confirmPaid.id })
+                setConfirmPaid(null)
+                showToast(`${confirmPaid.number} marked as paid`)
+              } catch (err) {
+                showToast(getUserMessage(AppError.fromUnknown(err)))
+              }
+            }}
+          >
+            {markPaid.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              'Confirm Paid'
+            )}
+          </Button>
         </div>
       </Modal>
+
+      <Modal
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Delete invoice?"
+        description={
+          confirmDelete
+            ? `This will delete ${confirmDelete.number}. This action cannot be undone.`
+            : ''
+        }
+        size="sm"
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            disabled={deleteInvoice.isPending}
+            onClick={async () => {
+              try {
+                await deleteInvoice.mutateAsync(confirmDelete.id)
+                setConfirmDelete(null)
+                showToast(`${confirmDelete.number} deleted`)
+              } catch (err) {
+                showToast(getUserMessage(AppError.fromUnknown(err)))
+              }
+            }}
+          >
+            {deleteInvoice.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Deleting…
+              </>
+            ) : (
+              'Delete'
+            )}
+          </Button>
+        </div>
+      </Modal>
+
+      <EditInvoiceModal
+        open={!!editInvoiceId}
+        invoiceId={editInvoiceId}
+        onClose={() => setEditInvoiceId(null)}
+      />
 
       <AnimatePresence>
         {toast && (
@@ -349,7 +511,11 @@ export function InvoiceManagement() {
             exit={{ opacity: 0, y: 10, x: '-50%' }}
             className="fixed bottom-6 left-1/2 z-50 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 shadow-lg"
           >
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            {toast.toLowerCase().includes('fail') || toast.toLowerCase().includes('error') ? (
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            )}
             {toast}
           </motion.div>
         )}

@@ -41,6 +41,16 @@ function formatPlanPrice(plan) {
   return `${formatted}${interval}`
 }
 
+/** Trial only when product still offers it (first time). Never invent a 7-day fallback. */
+function resolveTrialDays(productOverview, plan) {
+  if (!productOverview?.trial_enabled) return 0
+  const fromPlan = Number(plan?.trial_days)
+  if (Number.isFinite(fromPlan) && fromPlan > 0) return fromPlan
+  const fromProduct = Number(productOverview?.trial_days)
+  if (Number.isFinite(fromProduct) && fromProduct > 0) return fromProduct
+  return 0
+}
+
 async function confirmPaymentAction(stripe, clientSecret) {
   const result = await stripe.confirmCardPayment(clientSecret)
   if (result.error) {
@@ -82,8 +92,7 @@ export function SubscribeCheckoutForm({
 
   const plans = (productOverview?.plans || []).filter((p) => p.is_active !== false)
   const productSlug = productOverview?.product || 'duewise'
-  const trialDays = productOverview?.trial_days || plans[0]?.trial_days || 7
-  const showTrialPreview = intent === 'trial' && trialDays > 0
+  const trialEligible = Boolean(productOverview?.trial_enabled)
   const useSavedCard = paymentSource !== 'new' && Boolean(paymentSource)
   const hasSavedCards = cards.length > 0
 
@@ -201,6 +210,8 @@ export function SubscribeCheckoutForm({
     >
       {({ values, isSubmitting }) => {
         const plan = plans.find((p) => p.plan_key === values.plan)
+        const trialDays = resolveTrialDays(productOverview, plan)
+        const showTrialPreview = intent === 'trial' && trialEligible && trialDays > 0
         const busy = submitting || isSubmitting || subscribe.isPending
         const cta =
           submitLabel ||
@@ -242,9 +253,7 @@ export function SubscribeCheckoutForm({
                   {plan.performance_fee_percent != null
                     ? ` · ${plan.performance_fee_percent}% performance fee`
                     : ''}
-                  {(plan.trial_days || trialDays) > 0
-                    ? ` · ${plan.trial_days || trialDays}-day trial`
-                    : ''}
+                  {trialEligible && trialDays > 0 ? ` · ${trialDays}-day trial` : ''}
                 </p>
               </div>
             )}
@@ -279,7 +288,7 @@ export function SubscribeCheckoutForm({
 
             <p className="flex items-start gap-1.5 text-[11px] text-slate-500">
               <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Secured by Stripe. 3D Secure may appear if your bank requires it.
+              Payments are processed securely by Stripe.
             </p>
 
             {formError && (
@@ -309,8 +318,8 @@ export function SubscribeModal({
 }) {
   const hasKey = Boolean(APP_CONFIG.stripePublishableKey)
   const stripePromise = getStripe()
-  const trialDays = productOverview?.trial_days || 7
-  const isTrial = intent === 'trial'
+  const trialDays = resolveTrialDays(productOverview, null)
+  const isTrial = intent === 'trial' && Boolean(productOverview?.trial_enabled) && trialDays > 0
 
   return (
     <Modal
@@ -320,8 +329,8 @@ export function SubscribeModal({
       title={isTrial ? 'Start free trial' : 'Subscribe'}
       description={
         isTrial
-          ? `Preview: ${trialDays}-day trial via the same Stripe subscription checkout.`
-          : 'Activate your plan with Stripe. SCA / 3D Secure supported.'
+          ? `${trialDays}-day free trial via Stripe subscription checkout.`
+          : 'Activate your plan securely with Stripe.'
       }
     >
       {!hasKey ? (

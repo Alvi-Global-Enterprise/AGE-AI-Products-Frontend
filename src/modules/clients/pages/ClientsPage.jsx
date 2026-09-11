@@ -7,6 +7,7 @@ import { Badge } from '@/shared/components/ui/Badge'
 import { Button } from '@/shared/components/ui/Button'
 import { Modal } from '@/shared/components/ui/Modal'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { PaginationControls } from '@/shared/components/ui/PaginationControls'
 import { FormikAuthField } from '@/modules/auth/components/FormikAuthField'
 import { FormikSelect } from '@/modules/auth/components/FormikSelect'
 import { FormikPhoneField } from '@/shared/components/FormikPhoneField'
@@ -22,6 +23,9 @@ import { PREFERRED_CHANNELS, RISK_TIERS, CURRENCIES } from '@/shared/constants/c
 import { AppError } from '@/shared/errors/AppError'
 import { getUserMessage } from '@/shared/errors/errorHandler'
 import { formatCurrency, cn } from '@/shared/lib/utils'
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
+
+const PER_PAGE = 15
 
 function ClientFormModal({ open, onClose, client }) {
   const createClient = useCreateClient()
@@ -142,9 +146,12 @@ export default function ClientsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [risk, setRisk] = useState(searchParams.get('risk_tier') || '')
+  const [page, setPage] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+
+  const debouncedSearch = useDebouncedValue(search.trim(), 400)
 
   useEffect(() => {
     const fromUrl = searchParams.get('risk_tier') || ''
@@ -154,18 +161,23 @@ export default function ClientsPage() {
 
   const filters = useMemo(
     () => ({
-      search: search.trim() || undefined,
+      page,
+      per_page: PER_PAGE,
+      search: debouncedSearch || undefined,
       risk_tier: risk || undefined,
     }),
-    [search, risk]
+    [page, debouncedSearch, risk]
   )
 
-  const { data: clients = [], isLoading, isError, error, refetch } = useClients(filters)
+  const { data, isLoading, isFetching, isError, error, refetch } = useClients(filters)
+  const clients = data?.data ?? []
+  const meta = data?.meta ?? {}
   const { data: stats, isLoading: statsLoading } = useClientStats()
   const deleteClient = useDeleteClient()
 
   const onRiskChange = (value) => {
     setRisk(value)
+    setPage(1)
     const next = new URLSearchParams(searchParams)
     if (value) next.set('risk_tier', value)
     else next.delete('risk_tier')
@@ -240,7 +252,10 @@ export default function ClientsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               placeholder="Search name, company, email…"
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15"
             />
@@ -350,6 +365,18 @@ export default function ClientsPage() {
           </Card>
         ))}
       </div>
+
+      {!isLoading && !isError && (meta.total > 0 || clients.length > 0) && (
+        <Card>
+          <PaginationControls
+            meta={meta}
+            page={page}
+            onPageChange={setPage}
+            isFetching={isFetching}
+            className="border-0"
+          />
+        </Card>
+      )}
 
       <ClientFormModal
         open={modalOpen}

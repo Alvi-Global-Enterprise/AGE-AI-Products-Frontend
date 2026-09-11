@@ -9,10 +9,28 @@ export function useDuewiseDashboard() {
   })
 }
 
-export function useInvoices(filters) {
+/** GET /api/duewise/invoices — Laravel paginated list */
+export function useInvoices(filters = {}, options = {}) {
+  const params = {
+    page: Number(filters.page) || 1,
+    per_page: Number(filters.per_page) || 15,
+    ...filters,
+  }
   return useQuery({
-    queryKey: duewiseKeys.invoices(filters),
-    queryFn: () => duewiseApi.getInvoices(filters),
+    queryKey: duewiseKeys.invoices(params),
+    queryFn: () => duewiseApi.getInvoices(params),
+    placeholderData: (prev) => prev,
+    ...options,
+  })
+}
+
+export function useInvoice(id, options = {}) {
+  return useQuery({
+    queryKey: duewiseKeys.invoice(id),
+    queryFn: () => duewiseApi.getInvoice(id),
+    select: (res) => res?.data ?? res,
+    enabled: Boolean(id),
+    ...options,
   })
 }
 
@@ -21,10 +39,57 @@ export function useCreateInvoice() {
   return useMutation({
     mutationFn: (payload) => duewiseApi.createInvoice(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoices() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
     },
     onError: (error) => handleError(error, { context: 'duewise.createInvoice' }),
+  })
+}
+
+export function useUpdateInvoice() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }) => duewiseApi.updateInvoice(id, payload),
+    onSuccess: (_res, vars) => {
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.updateInvoice' }),
+  })
+}
+
+export function useDeleteInvoice() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => duewiseApi.deleteInvoice(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.deleteInvoice' }),
+  })
+}
+
+export function useMarkInvoicePaid() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }) => duewiseApi.markInvoicePaid(id, payload),
+    onSuccess: (_res, vars) => {
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.markInvoicePaid' }),
+  })
+}
+
+/** POST /api/duewise/invoices/{id}/remind */
+export function useRemindInvoice() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }) => duewiseApi.remindInvoice(id, payload),
+    onSuccess: (_res, vars) => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.remindInvoice' }),
   })
 }
 
@@ -56,7 +121,7 @@ export function useQuickBooksCallback() {
   })
 }
 
-/** GET /api/duewise/quickbooks/status — drives Connect button visibility */
+/** GET /api/duewise/quickbooks/status — drives Connect / Disconnect button state */
 export function useQuickBooksStatus(options = {}) {
   return useQuery({
     queryKey: duewiseKeys.quickbooksStatus(),
@@ -65,5 +130,31 @@ export function useQuickBooksStatus(options = {}) {
       return res?.data ?? res
     },
     ...options,
+  })
+}
+
+/** POST /api/duewise/quickbooks/sync — refresh invoices/clients after sync */
+export function useQuickBooksSync() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload) => duewiseApi.syncQuickBooks(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.quickbooksStatus() })
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.quickbooksSync' }),
+  })
+}
+
+/** POST /api/duewise/quickbooks/disconnect — then refresh status */
+export function useQuickBooksDisconnect() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => duewiseApi.disconnectQuickBooks(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.quickbooksStatus() })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.quickbooksDisconnect' }),
   })
 }
