@@ -1,11 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { duewiseApi, duewiseKeys } from '@/products/duewise/api/duewise.api'
+import { billingKeys } from '@/modules/billing/api/billing.api'
 import { handleError } from '@/shared/errors/errorHandler'
 
 export function useDuewiseDashboard() {
   return useQuery({
     queryKey: duewiseKeys.dashboard(),
     queryFn: () => duewiseApi.getDashboard(),
+    select: (res) => res?.data ?? res,
+  })
+}
+
+/** GET /api/duewise/forecast — 30-day receivables projection */
+export function useDuewiseForecast() {
+  return useQuery({
+    queryKey: duewiseKeys.forecast(),
+    queryFn: () => duewiseApi.getForecast(),
+    select: (res) => res?.data ?? res,
   })
 }
 
@@ -41,6 +52,7 @@ export function useCreateInvoice() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },
     onError: (error) => handleError(error, { context: 'duewise.createInvoice' }),
   })
@@ -53,6 +65,8 @@ export function useUpdateInvoice() {
     onSuccess: (_res, vars) => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },
     onError: (error) => handleError(error, { context: 'duewise.updateInvoice' }),
   })
@@ -64,6 +78,8 @@ export function useDeleteInvoice() {
     mutationFn: (id) => duewiseApi.deleteInvoice(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },
     onError: (error) => handleError(error, { context: 'duewise.deleteInvoice' }),
   })
@@ -76,6 +92,8 @@ export function useMarkInvoicePaid() {
     onSuccess: (_res, vars) => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },
     onError: (error) => handleError(error, { context: 'duewise.markInvoicePaid' }),
   })
@@ -116,12 +134,13 @@ export function useQuickBooksCallback() {
       duewiseApi.callbackQuickBooks({ code, realmId, state }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: duewiseKeys.quickbooksStatus() })
+      queryClient.invalidateQueries({ queryKey: billingKeys.accountsStatus() })
     },
     onError: (error) => handleError(error, { context: 'duewise.quickbooksCallback' }),
   })
 }
 
-/** GET /api/duewise/quickbooks/status — drives Connect / Disconnect button state */
+/** @deprecated Prefer useAccountsStatus on Integrations — kept for niche QB-only callers */
 export function useQuickBooksStatus(options = {}) {
   return useQuery({
     queryKey: duewiseKeys.quickbooksStatus(),
@@ -141,6 +160,7 @@ export function useQuickBooksSync() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.quickbooksStatus() })
+      queryClient.invalidateQueries({ queryKey: billingKeys.accountsStatus() })
       queryClient.invalidateQueries({ queryKey: ['clients'] })
     },
     onError: (error) => handleError(error, { context: 'duewise.quickbooksSync' }),
@@ -154,6 +174,7 @@ export function useQuickBooksDisconnect() {
     mutationFn: () => duewiseApi.disconnectQuickBooks(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: duewiseKeys.quickbooksStatus() })
+      queryClient.invalidateQueries({ queryKey: billingKeys.accountsStatus() })
     },
     onError: (error) => handleError(error, { context: 'duewise.quickbooksDisconnect' }),
   })

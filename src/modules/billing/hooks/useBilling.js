@@ -113,3 +113,43 @@ export function useDeletePaymentMethod() {
     onError: (e) => handleError(e, { context: 'billing.deletePaymentMethod' }),
   })
 }
+
+/** GET /api/accounts/status — QuickBooks + Stripe Connect */
+export function useAccountsStatus(options = {}) {
+  return useQuery({
+    queryKey: billingKeys.accountsStatus(),
+    queryFn: () => billingApi.getAccountsStatus(),
+    select: (res) => res?.data ?? res,
+    ...options,
+  })
+}
+
+/** GET /api/billing/connect/status */
+export function useStripeConnectStatus(options = {}) {
+  return useQuery({
+    queryKey: billingKeys.connectStatus(),
+    queryFn: () => billingApi.getConnectStatus(),
+    ...options,
+  })
+}
+
+/** POST /api/billing/connect/onboard → Stripe Express URL */
+export function useStripeConnectOnboard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload) => billingApi.connectOnboard(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: billingKeys.connectStatus() })
+      qc.invalidateQueries({ queryKey: billingKeys.accountsStatus() })
+    },
+    onError: (e) => handleError(e, { context: 'billing.connectOnboard' }),
+  })
+}
+
+/** GET /api/billing/connect/login-link */
+export function useStripeConnectLoginLink() {
+  return useMutation({
+    mutationFn: () => billingApi.getConnectLoginLink(),
+    onError: (e) => handleError(e, { context: 'billing.connectLoginLink' }),
+  })
+}

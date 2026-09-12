@@ -1,5 +1,4 @@
 import * as Yup from 'yup'
-import { isValidPhoneNumber } from 'libphonenumber-js'
 import {
   emailField,
   passwordField,
@@ -7,17 +6,9 @@ import {
   nameField,
   otpField,
 } from '@/shared/validation/fields'
+import { optionalPhoneField } from '@/shared/validation/phone'
 
-/** Optional E.164 phone — empty allowed */
-export const optionalPhoneField = Yup.string()
-  .trim()
-  .max(50, 'Max 50 characters')
-  .nullable()
-  .transform((v) => (v === '' ? null : v))
-  .test('phone', 'Enter a valid phone number', (value) => {
-    if (!value) return true
-    return isValidPhoneNumber(value)
-  })
+export { optionalPhoneField }
 
 export const checkEmailSchema = Yup.object({
   email: emailField,

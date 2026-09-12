@@ -160,6 +160,44 @@ const MOCK_PAYMENT_METHODS = [
   },
 ]
 
+/** In-memory Stripe Connect mock for local flows */
+let mockStripeConnect = {
+  connected: false,
+  details_submitted: false,
+  charges_enabled: false,
+  payouts_enabled: false,
+  account_id: null,
+  bank_name: null,
+  bank_last4: null,
+}
+
+export function getMockStripeConnect() {
+  return { ...mockStripeConnect }
+}
+
+export function setMockStripeConnectConnected(connected = true) {
+  mockStripeConnect = connected
+    ? {
+        connected: true,
+        details_submitted: true,
+        charges_enabled: true,
+        payouts_enabled: true,
+        account_id: 'acct_mock_demo',
+        bank_name: 'Chase',
+        bank_last4: '6789',
+      }
+    : {
+        connected: false,
+        details_submitted: false,
+        charges_enabled: false,
+        payouts_enabled: false,
+        account_id: null,
+        bank_name: null,
+        bank_last4: null,
+      }
+  return getMockStripeConnect()
+}
+
 export const billingApi = {
   /** GET /api/billing/plans — product catalog + tenant trial/sub state */
   async getPlans(product) {
@@ -309,6 +347,83 @@ export const billingApi = {
   catalog() {
     return BILLING_PRODUCTS
   },
+
+  /**
+   * POST /api/billing/connect/onboard
+   * Body: { return_url, refresh_url }
+   */
+  async connectOnboard(payload = {}) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(500)
+      setMockStripeConnectConnected(true)
+      const returnUrl =
+        payload.return_url ||
+        `${window.location.origin}/auth/connect-bank?status=success`
+      return {
+        url: returnUrl,
+        account_id: 'acct_mock_demo',
+        message: 'Stripe Connect onboarding link generated successfully.',
+      }
+    }
+    const { data } = await axiosClient.post('/api/billing/connect/onboard', {
+      return_url: payload.return_url,
+      refresh_url: payload.refresh_url,
+    })
+    return data
+  },
+
+  /** GET /api/billing/connect/status */
+  async getConnectStatus() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(250)
+      return getMockStripeConnect()
+    }
+    const { data } = await axiosClient.get('/api/billing/connect/status')
+    return data
+  },
+
+  /** GET /api/billing/connect/login-link */
+  async getConnectLoginLink() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(300)
+      return {
+        url: 'https://connect.stripe.com/express/acct_mock_demo',
+      }
+    }
+    const { data } = await axiosClient.get('/api/billing/connect/login-link')
+    return data
+  },
+
+  /**
+   * GET /api/accounts/status
+   * Unified QuickBooks + Stripe Connect overview (replaces QB-only status on Integrations).
+   */
+  async getAccountsStatus() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(300)
+      const stripe = getMockStripeConnect()
+      return {
+        data: {
+          quickbooks: {
+            is_connected: false,
+            realm_id: null,
+            sync_status: 'not_connected',
+            last_synced_at: null,
+          },
+          stripe: { ...stripe },
+          summary: {
+            quickbooks_connected: false,
+            stripe_connected: Boolean(stripe.connected),
+            payouts_enabled: Boolean(stripe.payouts_enabled),
+            payouts_ready: Boolean(stripe.connected && stripe.payouts_enabled),
+            all_connected: false,
+          },
+        },
+      }
+    }
+    const { data } = await axiosClient.get('/api/accounts/status')
+    return data
+  },
 }
 
 export const billingKeys = {
@@ -317,4 +432,6 @@ export const billingKeys = {
   transactions: (params) => [...billingKeys.all, 'transactions', params || {}],
   subscription: (product) => [...billingKeys.all, 'subscription', product],
   paymentMethods: () => [...billingKeys.all, 'payment-methods'],
+  connectStatus: () => [...billingKeys.all, 'connect', 'status'],
+  accountsStatus: () => [...billingKeys.all, 'accounts', 'status'],
 }

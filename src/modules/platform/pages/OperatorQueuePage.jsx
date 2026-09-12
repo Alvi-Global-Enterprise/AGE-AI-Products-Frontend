@@ -85,10 +85,10 @@ export default function OperatorQueuePage() {
                 type="button"
                 className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-700 shadow-sm ring-1 ring-emerald-100 hover:bg-emerald-50"
               >
-                <CheckCircle2 className="h-3.5 w-3.5" /> Resolve
+                <CheckC ircle2 className="h-3.5 w-3.5" /> Resolve
               </button>
             </motion.div>
-          ))}
+          ))} 
         </CardContent>
       </Card>
     </div>

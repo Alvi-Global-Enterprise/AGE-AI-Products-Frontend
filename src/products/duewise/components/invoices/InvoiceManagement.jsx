@@ -5,7 +5,6 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  Clock,
   Loader2,
   Trash2,
   Pencil,
@@ -55,25 +54,6 @@ function initialsFromName(name = '') {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() || '')
     .join('') || '?'
-}
-
-function SyncBadge({ quickbooksId }) {
-  if (quickbooksId) {
-    return (
-      <Tooltip content={`QuickBooks ID: ${quickbooksId}`}>
-        <Badge variant="synced">
-          <CheckCircle2 className="h-3 w-3" /> Synced
-        </Badge>
-      </Tooltip>
-    )
-  }
-  return (
-    <Tooltip content="Not synced to QuickBooks yet">
-      <Badge variant="pending">
-        <Clock className="h-3 w-3" /> Pending
-      </Badge>
-    </Tooltip>
-  )
 }
 
 function StatusTabs({ active, onChange }) {
@@ -216,9 +196,6 @@ export function InvoiceManagement() {
                     Aging
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    QuickBooks
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Actions
                   </th>
                 </tr>
@@ -227,7 +204,7 @@ export function InvoiceManagement() {
                 {isLoading &&
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={`sk-${i}`} className="border-b border-slate-50">
-                      <td className="px-4 py-3.5" colSpan={7}>
+                      <td className="px-4 py-3.5" colSpan={6}>
                         <Skeleton className="h-10 w-full rounded-lg" />
                       </td>
                     </tr>
@@ -235,7 +212,7 @@ export function InvoiceManagement() {
 
                 {!isLoading && isError && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center">
+                    <td colSpan={6} className="px-4 py-12 text-center">
                       <p className="text-sm text-rose-600">{getUserMessage(error)}</p>
                       <Button
                         variant="secondary"
@@ -313,9 +290,6 @@ export function InvoiceManagement() {
                             <span className="text-xs font-medium text-slate-600">
                               {inv.aging_bucket || '—'}
                             </span>
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <SyncBadge quickbooksId={inv.quickbooks_id} />
                           </td>
                           <td
                             className="px-4 py-3.5"

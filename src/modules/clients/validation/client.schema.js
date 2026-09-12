@@ -1,22 +1,16 @@
 import * as Yup from 'yup'
-import { isValidPhoneNumber } from 'libphonenumber-js'
-
-const optionalPhone = Yup.string()
-  .trim()
-  .max(50)
-  .nullable()
-  .transform((v) => (v === '' ? null : v))
-  .test('phone', 'Enter a valid phone number', (value) => {
-    if (!value) return true
-    return isValidPhoneNumber(value)
-  })
+import { optionalPhoneField } from '@/shared/validation/phone'
 
 export const clientSchema = Yup.object({
   name: Yup.string().trim().required('Client name is required').max(255),
   company_name: Yup.string().trim().max(255).nullable(),
-  email: Yup.string().trim().email('Enter a valid email').nullable(),
-  phone: optionalPhone,
-  whatsapp_phone: optionalPhone,
+  email: Yup.string()
+    .trim()
+    .email('Enter a valid email')
+    .nullable()
+    .transform((v) => (v === '' ? null : v)),
+  phone: optionalPhoneField,
+  whatsapp_phone: optionalPhoneField,
   currency: Yup.string().trim().max(3).nullable(),
   tax_number: Yup.string().trim().max(100).nullable(),
   address: Yup.string().trim().max(1000).nullable(),

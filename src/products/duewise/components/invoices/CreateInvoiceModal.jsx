@@ -33,7 +33,7 @@ export function CreateInvoiceModal({ open, onClose }) {
       open={open}
       onClose={onClose}
       title="Create Invoice"
-      description="Fields match POST /api/duewise/invoices — syncs to QuickBooks when connected."
+      description="Create an invoice for a client. Syncs to QuickBooks when connected."
       size="lg"
     >
       <Formik
@@ -66,6 +66,7 @@ export function CreateInvoiceModal({ open, onClose }) {
                   name="client_id"
                   clients={clients}
                   loading={clientsLoading}
+                  onAddClient={onClose}
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2">

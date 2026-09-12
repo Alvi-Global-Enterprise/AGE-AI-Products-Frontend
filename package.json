@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview --host"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",
@@ -23,6 +23,7 @@
     "lucide-react": "^1.42.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-phone-number-input": "^3.4.18",
     "react-redux": "^9.3.0",
     "react-router-dom": "^7.18.3",
     "tailwind-merge": "^3.6.0",

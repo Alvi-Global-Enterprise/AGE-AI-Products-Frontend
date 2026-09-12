@@ -1,73 +1,152 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Sparkles } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
-import { formatCurrency, cn } from '@/lib/utils'
-import { CASH_FLOW_FORECAST } from '@/data/mockData'
+import { TrendingUp, AlertCircle } from 'lucide-react'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/shared/components/ui/Card'
+import { Badge } from '@/shared/components/ui/Badge'
+import { Button } from '@/shared/components/ui/Button'
+import { Skeleton } from '@/shared/components/ui/Skeleton'
+import { formatCurrency, cn } from '@/shared/lib/utils'
+import { useDuewiseForecast } from '@/products/duewise/hooks/useDuewise'
+import { getUserMessage } from '@/shared/errors/errorHandler'
 
 const CHART_HEIGHT = 248
-const MAX_VAL = 22000
-const Y_TICKS = [0, 5500, 11000, 16500, 22000]
 
-function barHeight(value) {
-  return Math.max(Math.round((value / MAX_VAL) * CHART_HEIGHT), 10)
+function formatDayLabel(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function buildChartPoints(forecast) {
+  const daily = Array.isArray(forecast?.daily_projections)
+    ? forecast.daily_projections
+    : []
+  const summary = forecast?.summary || {}
+  const expectedTotal = Number(summary.total_expected) || 0
+  const optimisticTotal = Number(summary.total_optimistic) || expectedTotal
+  const ratio = expectedTotal > 0 ? optimisticTotal / expectedTotal : 1
+
+  // Prefer days with activity; otherwise sample every other day for readability
+  const withActivity = daily.filter((d) => Number(d.expected_amount) > 0)
+  const source =
+    withActivity.length >= 4
+      ? withActivity
+      : daily.filter((_, i) => i % 2 === 0 || Number(daily[i]?.expected_amount) > 0)
+
+  return source.map((d, i) => {
+    const expected = Number(d.expected_amount) || 0
+    return {
+      id: d.date || i,
+      label: formatDayLabel(d.date),
+      date: d.date,
+      expected,
+      optimistic: Math.round(expected * ratio),
+      invoiceCount: Number(d.invoice_count) || 0,
+    }
+  })
+}
+
+function niceMax(values) {
+  const peak = Math.max(...values, 1)
+  const step = Math.pow(10, Math.floor(Math.log10(peak)))
+  return Math.ceil(peak / step) * step
 }
 
 export function CashFlowChart() {
+  const { data: forecast, isLoading, isError, error, refetch } = useDuewiseForecast()
   const [hovered, setHovered] = useState(null)
 
-  const { totalOptimized, totalExpected, uplift, peakIndex } = useMemo(() => {
-    const totalOptimized = CASH_FLOW_FORECAST.reduce((s, d) => s + d.optimized, 0)
-    const totalExpected = CASH_FLOW_FORECAST.reduce((s, d) => s + d.expected, 0)
-    let peakIndex = 0
-    CASH_FLOW_FORECAST.forEach((d, i) => {
-      if (d.optimized > CASH_FLOW_FORECAST[peakIndex].optimized) peakIndex = i
-    })
-    return {
-      totalOptimized,
-      totalExpected,
-      uplift: totalOptimized - totalExpected,
-      peakIndex,
-    }
-  }, [])
+  const points = useMemo(() => buildChartPoints(forecast), [forecast])
+  const summary = forecast?.summary || {}
 
-  const active = hovered !== null ? CASH_FLOW_FORECAST[hovered] : null
-  const activeDelta = active
-    ? Math.round(((active.optimized - active.expected) / active.expected) * 100)
-    : null
+  const { maxVal, yTicks, peakIndex, uplift } = useMemo(() => {
+    const vals = points.flatMap((p) => [p.expected, p.optimistic])
+    const maxVal = niceMax(vals)
+    const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal]
+    let peakIndex = 0
+    points.forEach((p, i) => {
+      if (p.optimistic > (points[peakIndex]?.optimistic || 0)) peakIndex = i
+    })
+    const expected = Number(summary.total_expected) || 0
+    const optimistic = Number(summary.total_optimistic) || 0
+    return {
+      maxVal,
+      yTicks,
+      peakIndex,
+      uplift: optimistic - expected,
+    }
+  }, [points, summary])
+
+  const barHeight = (value) =>
+    Math.max(Math.round((value / maxVal) * CHART_HEIGHT), value > 0 ? 8 : 2)
+
+  if (isLoading) {
+    return <Skeleton className="h-[420px] w-full rounded-2xl" />
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <p className="flex items-center gap-2 text-sm text-rose-600">
+            <AlertCircle className="h-4 w-4" />
+            {getUserMessage(error)}
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const active = hovered != null ? points[hovered] : null
+  const period = forecast?.forecast_period
+  const xLabels = points.filter((_, i) =>
+    [0, Math.floor(points.length / 3), Math.floor((points.length * 2) / 3), points.length - 1].includes(i)
+  )
 
   return (
     <motion.div
       className="flex h-full w-full"
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.35, duration: 0.45 }}
+      transition={{ delay: 0.2, duration: 0.45 }}
     >
       <Card className="flex h-full w-full flex-col overflow-hidden">
         <CardHeader className="pb-2">
           <div>
             <div className="flex items-center gap-2">
               <CardTitle>30-Day Cash Flow Forecast</CardTitle>
-              <Badge variant="ai" className="hidden sm:inline-flex">
-                <Sparkles className="h-3 w-3" /> AI model
+              <Badge variant="secondary" className="hidden sm:inline-flex">
+                {period?.days || 30} days
               </Badge>
             </div>
             <CardDescription>
-              Expected collections vs AI-optimized recovery path
+              Expected collections vs optimistic scenario
+              {period?.start && period?.end
+                ? ` · ${formatDayLabel(period.start)} – ${formatDayLabel(period.end)}`
+                : ''}
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="default">94% confidence</Badge>
-            <Badge variant="paid">
-              <TrendingUp className="h-3 w-3" />
-              +{formatCurrency(uplift, { compact: true })} uplift
-            </Badge>
+            {uplift > 0 && (
+              <Badge className="bg-emerald-50 text-emerald-700">
+                <TrendingUp className="h-3 w-3" />
+                +{formatCurrency(uplift, { compact: true })} upside
+              </Badge>
+            )}
           </div>
         </CardHeader>
 
         <CardContent className="flex flex-1 flex-col pt-2">
-          {/* Live readout + legend */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3 text-xs">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-sm">
@@ -76,14 +155,14 @@ export function CashFlowChart() {
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50/80 px-2.5 py-1 text-emerald-800 shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
-                AI Optimized
+                Optimistic
               </span>
             </div>
 
             <AnimatePresence mode="wait">
               {active ? (
                 <motion.div
-                  key={active.day}
+                  key={active.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
@@ -95,10 +174,7 @@ export function CashFlowChart() {
                     {formatCurrency(active.expected)}
                   </span>
                   <span className="text-xs tabular-nums font-semibold text-emerald-700">
-                    {formatCurrency(active.optimized)}
-                  </span>
-                  <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                    +{activeDelta}%
+                    {formatCurrency(active.optimistic)}
                   </span>
                 </motion.div>
               ) : (
@@ -115,201 +191,128 @@ export function CashFlowChart() {
             </AnimatePresence>
           </div>
 
-          {/* Chart well */}
-          <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-b from-slate-50/90 via-white to-emerald-50/30 p-4 sm:p-5">
-            <div
-              className="pointer-events-none absolute inset-0 opacity-40"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.18) 1px, transparent 0)',
-                backgroundSize: '16px 16px',
-              }}
-            />
-
-            <div className="relative flex gap-3 sm:gap-4">
-              {/* Y-axis */}
-              <div
-                className="flex w-9 shrink-0 flex-col justify-between text-right sm:w-10"
-                style={{ height: CHART_HEIGHT }}
-              >
-                {[...Y_TICKS].reverse().map((tick) => (
-                  <span
-                    key={tick}
-                    className="text-[10px] font-medium tabular-nums leading-none text-slate-400"
-                  >
-                    {tick === 0 ? '$0' : `$${tick / 1000}k`}
-                  </span>
-                ))}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="relative" style={{ height: CHART_HEIGHT }}>
-                  {/* Horizontal guides */}
-                  <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-                    {Y_TICKS.map((tick, i) => (
-                      <div
-                        key={tick}
-                        className={cn(
-                          'w-full border-t',
-                          i === Y_TICKS.length - 1
-                            ? 'border-slate-200'
-                            : 'border-dashed border-slate-200/70'
-                        )}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Soft area silhouette behind bars (optimized trend) */}
-                  <svg
-                    className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-                    preserveAspectRatio="none"
-                    viewBox={`0 0 ${CASH_FLOW_FORECAST.length - 1} ${MAX_VAL}`}
-                  >
-                    <defs>
-                      <linearGradient id="optFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.18" />
-                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <motion.path
-                      d={
-                        `M 0 ${MAX_VAL - CASH_FLOW_FORECAST[0].optimized} ` +
-                        CASH_FLOW_FORECAST.slice(1)
-                          .map((p, i) => `L ${i + 1} ${MAX_VAL - p.optimized}`)
-                          .join(' ') +
-                        ` L ${CASH_FLOW_FORECAST.length - 1} ${MAX_VAL} L 0 ${MAX_VAL} Z`
-                      }
-                      fill="url(#optFill)"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.5, duration: 0.6 }}
-                    />
-                    <motion.polyline
-                      fill="none"
-                      stroke="#059669"
-                      strokeWidth="0.08"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      points={CASH_FLOW_FORECAST.map(
-                        (p, i) => `${i},${MAX_VAL - p.optimized}`
-                      ).join(' ')}
-                      initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: 1, opacity: 0.55 }}
-                      transition={{ delay: 0.45, duration: 0.9, ease: 'easeOut' }}
-                    />
-                  </svg>
-
-                  {/* Bars */}
-                  <div className="relative z-[1] flex h-full items-end gap-1 sm:gap-1.5">
-                    {CASH_FLOW_FORECAST.map((point, i) => {
-                      const isHovered = hovered === i
-                      const isPeak = i === peakIndex
-                      const optH = barHeight(point.optimized)
-                      const expH = barHeight(point.expected)
-                      const dimmed = hovered !== null && !isHovered
-
-                      return (
-                        <div
-                          key={point.day}
-                          className="relative flex h-full flex-1 items-end justify-center"
-                          onMouseEnter={() => setHovered(i)}
-                          onMouseLeave={() => setHovered(null)}
-                        >
-                          {/* Column hover wash */}
-                          <div
-                            className={cn(
-                              'absolute inset-x-0 bottom-0 rounded-t-lg transition-colors duration-200',
-                              isHovered ? 'bg-emerald-500/5' : 'bg-transparent'
-                            )}
-                            style={{ height: CHART_HEIGHT }}
-                          />
-
-                          <div
-                            className={cn(
-                              'relative z-[1] flex items-end justify-center gap-[3px] transition-opacity duration-200',
-                              dimmed && 'opacity-35'
-                            )}
-                          >
-                            <motion.div
-                              className={cn(
-                                'w-2.5 rounded-t-md bg-slate-300/90 sm:w-3',
-                                isHovered && 'bg-slate-400'
-                              )}
-                              initial={{ height: 0 }}
-                              animate={{ height: expH }}
-                              transition={{
-                                delay: 0.18 + i * 0.03,
-                                duration: 0.55,
-                                ease: [0.22, 1, 0.36, 1],
-                              }}
-                            />
-                            <motion.div
-                              className={cn(
-                                'relative w-3 rounded-t-md bg-gradient-to-t from-emerald-700 via-emerald-500 to-teal-400 shadow-sm shadow-emerald-600/20 sm:w-3.5',
-                                isHovered && 'shadow-md shadow-emerald-500/30',
-                                isPeak && 'ring-2 ring-emerald-300/70 ring-offset-1 ring-offset-white'
-                              )}
-                              initial={{ height: 0 }}
-                              animate={{ height: optH }}
-                              transition={{
-                                delay: 0.22 + i * 0.03,
-                                duration: 0.55,
-                                ease: [0.22, 1, 0.36, 1],
-                              }}
-                            >
-                              {isPeak && (
-                                <span className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm">
-                                  Peak
-                                </span>
-                              )}
-                            </motion.div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+          {points.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">
+              No forecast projections yet.
+            </p>
+          ) : (
+            <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-b from-slate-50/90 via-white to-emerald-50/30 p-4 sm:p-5">
+              <div className="relative flex gap-3 sm:gap-4">
+                <div
+                  className="flex w-9 shrink-0 flex-col justify-between text-right sm:w-10"
+                  style={{ height: CHART_HEIGHT }}
+                >
+                  {[...yTicks].reverse().map((tick) => (
+                    <span
+                      key={tick}
+                      className="text-[10px] font-medium tabular-nums leading-none text-slate-400"
+                    >
+                      {tick === 0 ? '$0' : formatCurrency(tick, { compact: true })}
+                    </span>
+                  ))}
                 </div>
 
-                {/* X-axis */}
-                <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-medium text-slate-400">
-                  {CASH_FLOW_FORECAST.filter((_, i) => [0, 3, 7, 11, 14].includes(i)).map(
-                    (point) => (
-                      <span key={point.day}>{point.label}</span>
-                    )
-                  )}
+                <div className="min-w-0 flex-1">
+                  <div className="relative" style={{ height: CHART_HEIGHT }}>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                      {yTicks.map((tick, i) => (
+                        <div
+                          key={tick}
+                          className={cn(
+                            'w-full border-t',
+                            i === yTicks.length - 1
+                              ? 'border-slate-200'
+                              : 'border-dashed border-slate-200/70'
+                          )}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="relative z-[1] flex h-full items-end gap-1 sm:gap-1.5">
+                      {points.map((point, i) => {
+                        const isHovered = hovered === i
+                        const isPeak = i === peakIndex && point.optimistic > 0
+                        const dimmed = hovered !== null && !isHovered
+
+                        return (
+                          <div
+                            key={point.id}
+                            className="relative flex h-full flex-1 items-end justify-center"
+                            onMouseEnter={() => setHovered(i)}
+                            onMouseLeave={() => setHovered(null)}
+                          >
+                            <div
+                              className={cn(
+                                'relative z-[1] flex items-end justify-center gap-[3px] transition-opacity duration-200',
+                                dimmed && 'opacity-35'
+                              )}
+                            >
+                              <motion.div
+                                className={cn(
+                                  'w-2.5 rounded-t-md bg-slate-300/90 sm:w-3',
+                                  isHovered && 'bg-slate-400'
+                                )}
+                                initial={{ height: 0 }}
+                                animate={{ height: barHeight(point.expected) }}
+                                transition={{ delay: 0.1 + i * 0.02, duration: 0.45 }}
+                              />
+                              <motion.div
+                                className={cn(
+                                  'relative w-3 rounded-t-md bg-gradient-to-t from-emerald-700 via-emerald-500 to-teal-400 shadow-sm shadow-emerald-600/20 sm:w-3.5',
+                                  isPeak &&
+                                    'ring-2 ring-emerald-300/70 ring-offset-1 ring-offset-white'
+                                )}
+                                initial={{ height: 0 }}
+                                animate={{ height: barHeight(point.optimistic) }}
+                                transition={{ delay: 0.14 + i * 0.02, duration: 0.45 }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-medium text-slate-400">
+                    {xLabels.map((point) => (
+                      <span key={point.id}>{point.label}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Summary metrics */}
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             {[
               {
-                label: 'Expected total',
-                value: formatCurrency(totalExpected, { compact: true }),
+                label: 'Expected',
+                value: formatCurrency(summary.total_expected || 0, { compact: true }),
                 tone: 'text-slate-800',
                 chip: 'bg-slate-100',
               },
               {
-                label: 'AI optimized',
-                value: formatCurrency(totalOptimized, { compact: true }),
+                label: 'Optimistic',
+                value: formatCurrency(summary.total_optimistic || 0, { compact: true }),
                 tone: 'text-emerald-700',
                 chip: 'bg-emerald-50',
               },
               {
-                label: 'Net uplift',
-                value: `+${formatCurrency(uplift, { compact: true })}`,
-                tone: 'text-teal-700',
-                chip: 'bg-teal-50',
+                label: 'Conservative',
+                value: formatCurrency(summary.total_conservative || 0, { compact: true }),
+                tone: 'text-sky-700',
+                chip: 'bg-sky-50',
+              },
+              {
+                label: 'At risk',
+                value: formatCurrency(summary.total_at_risk || 0, { compact: true }),
+                tone: 'text-amber-700',
+                chip: 'bg-amber-50',
               },
             ].map((stat) => (
               <div
                 key={stat.label}
-                className={cn(
-                  'rounded-xl border border-slate-100 px-3 py-2.5',
-                  stat.chip
-                )}
+                className={cn('rounded-xl border border-slate-100 px-3 py-2.5', stat.chip)}
               >
                 <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
                   {stat.label}

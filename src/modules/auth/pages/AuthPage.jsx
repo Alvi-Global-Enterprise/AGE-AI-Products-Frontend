@@ -9,6 +9,7 @@ import { useCheckEmail, useLogin, useRegister } from '@/modules/auth/hooks/useAu
 import { getAuthSchema, authFormInitialValues } from '@/modules/auth/validation'
 import { AppError } from '@/shared/errors/AppError'
 import { getUserMessage } from '@/shared/errors/errorHandler'
+import { isUserBankReady } from '@/shared/lib/tenantBank'
 
 function GoogleIcon() {
   return (
@@ -40,11 +41,12 @@ const STEP_LABELS = {
 }
 
 function postAuthRedirect(navigate, user) {
-  if (!user?.email_verified_at && !user?.is_profile_complete) {
-    // after login, verified users skip OTP
-  }
   if (user && !user.is_profile_complete) {
     navigate('/auth/complete-profile')
+    return
+  }
+  if (user && !isUserBankReady(user)) {
+    navigate('/auth/connect-bank')
     return
   }
   navigate('/app')

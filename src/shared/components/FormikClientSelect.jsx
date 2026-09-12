@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useField } from 'formik'
-import { ChevronsUpDown, Check, Search, Loader2 } from 'lucide-react'
+import { ChevronsUpDown, Check, Search, Loader2, UserPlus } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
 
 /**
@@ -13,6 +14,8 @@ export function FormikClientSelect({
   loading = false,
   placeholder = 'Select client',
   disabled = false,
+  addClientHref = '/app/clients',
+  onAddClient,
 }) {
   const [field, meta, helpers] = useField(name)
   const [open, setOpen] = useState(false)
@@ -20,6 +23,7 @@ export function FormikClientSelect({
   const rootRef = useRef(null)
   const inputRef = useRef(null)
   const showError = meta.touched && meta.error
+  const hasClients = clients.length > 0
 
   const selected = useMemo(
     () => clients.find((c) => String(c.id) === String(field.value)),
@@ -54,6 +58,11 @@ export function FormikClientSelect({
   const labelText = selected
     ? `${selected.name}${selected.company_name ? ` · ${selected.company_name}` : ''}`
     : placeholder
+
+  const goAddClient = () => {
+    setOpen(false)
+    onAddClient?.()
+  }
 
   return (
     <div className="w-full" ref={rootRef}>
@@ -91,18 +100,33 @@ export function FormikClientSelect({
       {open && !disabled && !loading && (
         <div className="relative z-40">
           <div className="absolute left-0 right-0 top-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-            <div className="relative border-b border-slate-100 p-2">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, company, email…"
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15"
-              />
-            </div>
+            {hasClients && (
+              <div className="relative border-b border-slate-100 p-2">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  ref={inputRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by name, company, email…"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15"
+                />
+              </div>
+            )}
             <ul className="max-h-56 overflow-y-auto py-1">
-              {filtered.length === 0 && (
+              {!hasClients && (
+                <li className="space-y-3 px-4 py-4 text-center">
+                  <p className="text-sm text-slate-600">No clients yet. Add a client first.</p>
+                  <Link
+                    to={addClientHref}
+                    onClick={goAddClient}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Add client
+                  </Link>
+                </li>
+              )}
+              {hasClients && filtered.length === 0 && (
                 <li className="px-4 py-3 text-sm text-slate-500">No clients match “{query}”</li>
               )}
               {filtered.map((c) => {
@@ -140,6 +164,19 @@ export function FormikClientSelect({
             </ul>
           </div>
         </div>
+      )}
+
+      {!loading && !hasClients && (
+        <p className="mt-2 text-xs text-slate-500">
+          Need a client?{' '}
+          <Link
+            to={addClientHref}
+            onClick={goAddClient}
+            className="font-medium text-emerald-700 hover:text-emerald-800"
+          >
+            Add client
+          </Link>
+        </p>
       )}
 
       {showError && <p className="mt-1.5 text-xs text-rose-600">{meta.error}</p>}

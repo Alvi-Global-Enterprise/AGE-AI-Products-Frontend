@@ -3,43 +3,19 @@ import { KPICards } from '@/products/duewise/components/dashboard/KPICards'
 import { CashFlowChart } from '@/products/duewise/components/dashboard/CashFlowChart'
 import { AIPaymentPrediction } from '@/products/duewise/components/dashboard/AIPaymentPrediction'
 import { ChannelTracker } from '@/products/duewise/components/dashboard/ChannelTracker'
-import { Skeleton } from '@/shared/components/ui/Skeleton'
-import { useDuewiseDashboard } from '@/products/duewise/hooks/useDuewise'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectUser } from '@/app/store/slices/authSlice'
 import { CURRENT_USER } from '@/modules/platform/data/platformData'
 
-function DashboardSkeleton() {
-  return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-96 max-w-full" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-36 rounded-2xl" />
-        ))}
-      </div>
-      <Skeleton className="h-28 rounded-2xl" />
-      <div className="grid gap-6 xl:grid-cols-5">
-        <Skeleton className="h-80 rounded-2xl xl:col-span-3" />
-        <Skeleton className="h-80 rounded-2xl xl:col-span-2" />
-      </div>
-      <Skeleton className="h-72 rounded-2xl" />
-    </div>
-  )
-}
-
 export default function DashboardPage() {
-  const { isLoading } = useDuewiseDashboard()
   const authUser = useAppSelector(selectUser)
   const user = authUser || CURRENT_USER
   const hour = new Date().getHours()
   const greeting =
     hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
-
-  if (isLoading) return <DashboardSkeleton />
+  const firstName =
+    (user?.name || user?.first_name || 'there').toString().split(' ')[0] || 'there'
+  const company = user?.company || user?.tenant?.name || 'your business'
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -49,11 +25,10 @@ export default function DashboardPage() {
         transition={{ duration: 0.4 }}
       >
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-          {greeting}, {user.name.split(' ')[0]}
+          {greeting}, {firstName}
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          DueWise overview — AI sequences + Karachi ops recovering overdue for{' '}
-          {user.company}. Approval mode on for new cadences.
+          DueWise overview for {company} — KPIs, forecast, and overdue risk from live data.
         </p>
       </motion.div>
 

@@ -88,9 +88,13 @@ function ClientFormModal({ open, onClose, client }) {
                 label="Company name"
                 placeholder="Acme International"
               />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <FormikPhoneField name="phone" label="Phone" defaultCountry="US" />
-                <FormikPhoneField name="whatsapp_phone" label="WhatsApp" defaultCountry="US" />
+              <div className="grid gap-3">
+                <FormikPhoneField name="phone" label="Phone (optional)" defaultCountry="US" />
+                <FormikPhoneField
+                  name="whatsapp_phone"
+                  label="WhatsApp (optional)"
+                  defaultCountry="US"
+                />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <FormikAuthField name="email" label="Email" type="email" placeholder="billing@…" />

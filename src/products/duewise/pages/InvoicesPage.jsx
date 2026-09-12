@@ -4,12 +4,17 @@ import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
 import { InvoiceManagement } from '@/products/duewise/components/invoices/InvoiceManagement'
 import { Button } from '@/shared/components/ui/Button'
 import { useQuickBooksSync } from '@/products/duewise/hooks/useDuewise'
+import { useAccountsStatus } from '@/modules/billing/hooks/useBilling'
 import { AppError } from '@/shared/errors/AppError'
 import { getUserMessage } from '@/shared/errors/errorHandler'
 import { cn } from '@/shared/lib/utils'
 
 export default function InvoicesPage() {
   const sync = useQuickBooksSync()
+  const { data: accounts } = useAccountsStatus()
+  const qbConnected = Boolean(
+    accounts?.quickbooks?.is_connected ?? accounts?.summary?.quickbooks_connected
+  )
   const [toast, setToast] = useState(null)
 
   const handleSync = async () => {
@@ -48,26 +53,28 @@ export default function InvoicesPage() {
           </p>
         </div>
 
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={sync.isPending}
-          onClick={handleSync}
-          className={cn(
-            'min-w-[9.5rem] border-emerald-200 bg-white text-emerald-800 shadow-sm',
-            'hover:border-emerald-300 hover:bg-emerald-50',
-            sync.isPending && 'pointer-events-none'
-          )}
-        >
-          <RefreshCw
-            className={cn('h-4 w-4 text-emerald-600', sync.isPending && 'animate-spin')}
-          />
-          {sync.isPending ? 'Syncing…' : 'Sync QuickBooks'}
-        </Button>
+        {qbConnected && (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={sync.isPending}
+            onClick={handleSync}
+            className={cn(
+              'min-w-[9.5rem] border-emerald-200 bg-white text-emerald-800 shadow-sm',
+              'hover:border-emerald-300 hover:bg-emerald-50',
+              sync.isPending && 'pointer-events-none'
+            )}
+          >
+            <RefreshCw
+              className={cn('h-4 w-4 text-emerald-600', sync.isPending && 'animate-spin')}
+            />
+            {sync.isPending ? 'Syncing…' : 'Sync QuickBooks'}
+          </Button>
+        )}
       </motion.div>
 
       <AnimatePresence>
-        {sync.isPending && (
+        {qbConnected && sync.isPending && (
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}

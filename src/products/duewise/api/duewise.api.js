@@ -1,13 +1,126 @@
 import { APP_CONFIG } from '@/shared/constants/config'
 import { delay } from '@/shared/lib/delay'
 import axiosClient from '@/shared/api/axiosClient'
-import {
-  KPI_METRICS,
-  CASH_FLOW_FORECAST,
-  AI_PREDICTIONS,
-  ACTIVITY_FEED,
-  BILLING_SUMMARY,
-} from '@/products/duewise/data/duewiseData'
+
+const MOCK_DASHBOARD = {
+  total_invoiced: 45000,
+  total_outstanding: 18500,
+  total_overdue: 12000,
+  total_recovered: 26500,
+  counts: {
+    total: 35,
+    paid: 20,
+    open: 8,
+    overdue: 5,
+    partially_paid: 2,
+    written_off: 0,
+    cancelled: 0,
+    draft: 0,
+  },
+  aging_buckets: {
+    current: { count: 6, amount: 6500 },
+    '1-30': { count: 3, amount: 5000 },
+    '31-60': { count: 1, amount: 4000 },
+    '61-90': { count: 1, amount: 3000 },
+    '90+': { count: 0, amount: 0 },
+  },
+  top_overdue_clients: [
+    {
+      client_id: 15,
+      client_name: 'Apex Global Logistics',
+      company_name: 'Apex Logistics Inc',
+      overdue_count: 2,
+      overdue_amount: 7000,
+      max_days_overdue: 45,
+    },
+    {
+      client_id: 1,
+      client_name: 'Acme Corp Ltd',
+      company_name: 'Acme Corp',
+      overdue_count: 1,
+      overdue_amount: 3200,
+      max_days_overdue: 12,
+    },
+  ],
+}
+
+function buildMockForecast() {
+  const start = new Date()
+  const end = new Date(start)
+  end.setDate(end.getDate() + 29)
+  const toDate = (d) => d.toISOString().slice(0, 10)
+
+  const daily_projections = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date(start)
+    date.setDate(start.getDate() + i)
+    const expected_amount = i % 4 === 0 ? 1500 + (i % 5) * 400 : i % 7 === 0 ? 2200 : 0
+    return {
+      date: toDate(date),
+      expected_amount,
+      invoice_count: expected_amount > 0 ? 1 : 0,
+    }
+  })
+
+  const total_expected = daily_projections.reduce((s, d) => s + d.expected_amount, 0)
+
+  return {
+    forecast_period: {
+      start: toDate(start),
+      end: toDate(end),
+      days: 30,
+    },
+    summary: {
+      total_expected,
+      total_optimistic: Math.round(total_expected * 1.3),
+      total_conservative: Math.round(total_expected * 0.67),
+      total_at_risk: 3000,
+    },
+    weekly_buckets: {
+      days_1_7: { period: 'Days 1-7', expected_amount: 4500, invoice_count: 3 },
+      days_8_14: { period: 'Days 8-14', expected_amount: 5200, invoice_count: 4 },
+      days_15_21: { period: 'Days 15-21', expected_amount: 3000, invoice_count: 2 },
+      days_22_30: { period: 'Days 22-30', expected_amount: 1550, invoice_count: 1 },
+      beyond_30: {
+        period: 'Beyond 30 Days (At Risk)',
+        expected_amount: 3000,
+        invoice_count: 1,
+      },
+    },
+    daily_projections,
+    upcoming_payments: [
+      {
+        invoice_id: 12,
+        invoice_number: 'INV-2026-004',
+        client_name: 'Acme Corp Ltd',
+        amount_due: 1500,
+        due_date: toDate(new Date(start.getTime() + 86400000)),
+        predicted_date: toDate(new Date(start.getTime() + 86400000)),
+        expected_amount: 1500,
+        late_probability: 15,
+      },
+      {
+        invoice_id: 15,
+        invoice_number: 'INV-2026-007',
+        client_name: 'Apex Global Logistics',
+        amount_due: 4200,
+        due_date: toDate(new Date(start.getTime() - 2 * 86400000)),
+        predicted_date: toDate(new Date(start.getTime() + 5 * 86400000)),
+        expected_amount: 4200,
+        late_probability: 72,
+      },
+      {
+        invoice_id: 18,
+        invoice_number: 'INV-2026-009',
+        client_name: 'Brightline Soft',
+        amount_due: 2800,
+        due_date: toDate(new Date(start.getTime() + 4 * 86400000)),
+        predicted_date: toDate(new Date(start.getTime() + 6 * 86400000)),
+        expected_amount: 2800,
+        late_probability: 48,
+      },
+    ],
+  }
+}
 
 const MOCK_INVOICES = [
   {
@@ -120,18 +233,23 @@ function paginate(items, params = {}) {
 }
 
 export const duewiseApi = {
+  /** GET /api/duewise/dashboard */
   async getDashboard() {
     if (APP_CONFIG.useMockApi) {
       await delay(450)
-      return {
-        kpis: KPI_METRICS,
-        cashFlow: CASH_FLOW_FORECAST,
-        predictions: AI_PREDICTIONS,
-        activity: ACTIVITY_FEED,
-        billing: BILLING_SUMMARY,
-      }
+      return { data: MOCK_DASHBOARD }
     }
-    const { data } = await axiosClient.get('/products/duewise/dashboard')
+    const { data } = await axiosClient.get('/api/duewise/dashboard')
+    return data
+  },
+
+  /** GET /api/duewise/forecast */
+  async getForecast() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      return { data: buildMockForecast() }
+    }
+    const { data } = await axiosClient.get('/api/duewise/forecast')
     return data
   },
 
@@ -403,6 +521,7 @@ export const duewiseApi = {
 export const duewiseKeys = {
   all: ['duewise'],
   dashboard: () => [...duewiseKeys.all, 'dashboard'],
+  forecast: () => [...duewiseKeys.all, 'forecast'],
   invoices: (filters) => [...duewiseKeys.all, 'invoices', filters ?? {}],
   invoice: (id) => [...duewiseKeys.all, 'invoice', id],
   quickbooksStatus: () => [...duewiseKeys.all, 'quickbooks', 'status'],

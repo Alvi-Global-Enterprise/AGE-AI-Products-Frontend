@@ -78,8 +78,8 @@ export default function PlatformDashboard() {
               {PLATFORM.name} Command Center
             </h1>
             <p className="mt-1.5 max-w-2xl text-sm text-slate-500">
-              Live client health for {company}. Stats from{' '}
-              <code className="text-xs">GET /api/clients/stats</code>.
+              Live client health for {company} — risk, outstanding balances, and recovery at a
+              glance.
             </p>
           </div>
           <Button

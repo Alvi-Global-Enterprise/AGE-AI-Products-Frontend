@@ -3,8 +3,17 @@ import { delay } from '@/shared/lib/delay'
 import axiosClient from '@/shared/api/axiosClient'
 import { AppError } from '@/shared/errors/AppError'
 import { getTempToken } from '@/shared/api/tokenStorage'
+import { getMockStripeConnect } from '@/modules/billing/api/billing.api'
 
 const EXISTING = new Set(['sarah@northstar.io', 'demo@age.ai', 'admin@age.ai'])
+
+function bankFlagsFromMockConnect() {
+  const stripe = getMockStripeConnect()
+  return {
+    bank_account_connected: Boolean(stripe.connected),
+    payouts_enabled: Boolean(stripe.payouts_enabled),
+  }
+}
 
 function mockUser(overrides = {}) {
   return {
@@ -29,6 +38,8 @@ function mockUser(overrides = {}) {
       tax_id: null,
       trial_ends_at: new Date(Date.now() + 30 * 86400000).toISOString(),
       on_trial: true,
+      bank_account_connected: false,
+      payouts_enabled: false,
     },
     ...overrides,
   }
@@ -93,6 +104,7 @@ export const authApi = {
             name: 'Northstar Labs',
             business_type: 'llc',
             business_category: 'technology',
+            ...bankFlagsFromMockConnect(),
           },
         }),
         token: 'mock|permanent_token',
@@ -158,7 +170,11 @@ export const authApi = {
           name: 'Sarah Chen',
           email_verified_at: new Date().toISOString(),
           is_profile_complete: true,
-          tenant: { ...mockUser().tenant, name: 'Northstar Labs' },
+          tenant: {
+            ...mockUser().tenant,
+            name: 'Northstar Labs',
+            ...bankFlagsFromMockConnect(),
+          },
         }),
       }
     }
@@ -186,6 +202,8 @@ export const authApi = {
             timezone: payload.timezone || 'UTC',
             website: payload.website ?? null,
             tax_id: payload.tax_id ?? null,
+            bank_account_connected: false,
+            payouts_enabled: false,
           },
         }),
         message: 'Business profile completed successfully.',

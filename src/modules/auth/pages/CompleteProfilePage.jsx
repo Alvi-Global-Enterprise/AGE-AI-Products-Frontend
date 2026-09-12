@@ -74,7 +74,7 @@ export default function CompleteProfilePage() {
               website: values.website?.trim() || undefined,
               tax_id: values.tax_id?.trim() || undefined,
             })
-            navigate('/app')
+            navigate('/auth/connect-bank', { replace: true })
           } catch (err) {
             const appError = AppError.fromUnknown(err)
             appError.applyToFormik(helpers.setErrors)

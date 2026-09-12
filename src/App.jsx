@@ -17,6 +17,7 @@ import DashboardPage from '@/products/duewise/pages/DashboardPage'
 import InvoicesPage from '@/products/duewise/pages/InvoicesPage'
 import InvoiceDetailPage from '@/products/duewise/pages/InvoiceDetailPage'
 import IntegrationsPage from '@/products/duewise/pages/IntegrationsPage'
+import ConnectBankPage from '@/modules/auth/pages/ConnectBankPage'
 
 function ProtectedLayout({ children }) {
   return (
@@ -59,6 +60,14 @@ export default function App() {
           element={
             <AuthGuard>
               <CompleteProfilePage />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/auth/connect-bank"
+          element={
+            <AuthGuard>
+              <ConnectBankPage />
             </AuthGuard>
           }
         />

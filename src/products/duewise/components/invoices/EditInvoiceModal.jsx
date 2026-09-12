@@ -104,6 +104,7 @@ export function EditInvoiceModal({ open, invoiceId, onClose }) {
                     name="client_id"
                     clients={clients}
                     loading={clientsLoading}
+                    onAddClient={onClose}
                   />
 
                   <FormikSelect name="status" label="Status">

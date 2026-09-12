@@ -87,3 +87,88 @@
     border-radius: 999px;
   }
 }
+
+/* react-phone-number-input — match AGE AI auth/form controls */
+.PhoneInputApp {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.PhoneInputApp:hover {
+  border-color: #cbd5e1;
+}
+
+.PhoneInputApp:focus-within {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgb(16 185 129 / 0.2);
+}
+
+.PhoneInputApp--error {
+  border-color: #fda4af;
+}
+
+.PhoneInputApp--error:focus-within {
+  border-color: #f43f5e;
+  box-shadow: 0 0 0 2px rgb(244 63 94 / 0.15);
+}
+
+.PhoneInputApp .PhoneInputCountry {
+  margin: 0;
+  padding: 0 0.5rem 0 0.75rem;
+  border-right: 1px solid #e2e8f0;
+  background: #f8fafc;
+  align-self: stretch;
+}
+
+.PhoneInputApp .PhoneInputCountryIcon {
+  width: 1.35rem;
+  height: 1rem;
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+}
+
+.PhoneInputApp .PhoneInputCountrySelectArrow {
+  opacity: 0.45;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: 0.35rem;
+}
+
+.PhoneInputApp .PhoneInputCountrySelect {
+  font-size: 0.875rem;
+}
+
+.PhoneInputApp-input,
+.PhoneInputApp .PhoneInputInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent;
+  padding: 0.875rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #0f172a;
+}
+
+.PhoneInputApp-input::placeholder,
+.PhoneInputApp .PhoneInputInput::placeholder {
+  color: #94a3b8;
+}
+
+.PhoneInputApp .PhoneInputInput:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
