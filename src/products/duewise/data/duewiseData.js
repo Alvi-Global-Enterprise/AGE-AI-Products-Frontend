@@ -313,7 +313,7 @@ export const DUEWISE_PRODUCT = {
   heroMetric: 'Overdue recovered',
   heroValue: '$87.4K',
   feeModel: '15% of recovered overdue + flat monthly',
-  blurb: 'Automated invoicing & AI-driven debt/payment recovery.',
+  blurb: '',
   detail:
     'Client connects QuickBooks. Sequences chase overdue invoices across email, SMS & WhatsApp. Ops handles exceptions. You take a share of what we recover.',
   connects: ['QuickBooks', 'Invoice uploads'],
