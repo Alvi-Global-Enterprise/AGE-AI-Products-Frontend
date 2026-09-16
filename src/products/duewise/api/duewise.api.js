@@ -313,6 +313,46 @@ export const duewiseApi = {
     return data
   },
 
+  /**
+   * GET /api/duewise/invoices/{id}/activity
+   * Chronological audit trail / communication log for the invoice.
+   */
+  async getInvoiceActivity(id) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(350)
+      return {
+        data: [
+          {
+            id: 14,
+            channel: 'whatsapp',
+            recipient: '+15559876543',
+            status: 'delivered',
+            tracking_token: 'a1b2c3d4e5f6mock',
+            sent_at: '2026-09-10T14:00:00.000000Z',
+            delivered_at: '2026-09-10T14:00:02.000000Z',
+            opened_at: '2026-09-10T14:15:20.000000Z',
+            clicked_at: '2026-09-10T14:16:05.000000Z',
+            replied_at: null,
+          },
+          {
+            id: 13,
+            channel: 'email',
+            recipient: 'billing@acme.com',
+            status: 'opened',
+            tracking_token: 'emailtokmock01',
+            sent_at: '2026-09-08T09:30:00.000000Z',
+            delivered_at: '2026-09-08T09:30:04.000000Z',
+            opened_at: '2026-09-08T11:02:10.000000Z',
+            clicked_at: null,
+            replied_at: null,
+          },
+        ],
+      }
+    }
+    const { data } = await axiosClient.get(`/api/duewise/invoices/${id}/activity`)
+    return data
+  },
+
   /** POST /api/duewise/invoices */
   async createInvoice(payload) {
     if (APP_CONFIG.useMockApi) {
@@ -524,5 +564,6 @@ export const duewiseKeys = {
   forecast: () => [...duewiseKeys.all, 'forecast'],
   invoices: (filters) => [...duewiseKeys.all, 'invoices', filters ?? {}],
   invoice: (id) => [...duewiseKeys.all, 'invoice', id],
+  invoiceActivity: (id) => [...duewiseKeys.all, 'invoice', id, 'activity'],
   quickbooksStatus: () => [...duewiseKeys.all, 'quickbooks', 'status'],
 }

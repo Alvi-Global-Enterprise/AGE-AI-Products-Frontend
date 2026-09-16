@@ -25,6 +25,7 @@ import {
 } from '@/products/duewise/hooks/useDuewise'
 import { EditInvoiceModal } from '@/products/duewise/components/invoices/EditInvoiceModal'
 import { RemindInvoiceModal } from '@/products/duewise/components/invoices/RemindInvoiceModal'
+import { InvoiceActivityFeed } from '@/products/duewise/components/invoices/InvoiceActivityFeed'
 import {
   formatInvoiceStatus,
   invoiceStatusBadgeVariant,
@@ -294,6 +295,8 @@ export default function InvoiceDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <InvoiceActivityFeed invoiceId={invoice.id} />
 
       <EditInvoiceModal
         open={editOpen}

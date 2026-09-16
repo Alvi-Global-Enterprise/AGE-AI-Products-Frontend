@@ -45,6 +45,17 @@ export function useInvoice(id, options = {}) {
   })
 }
 
+/** GET /api/duewise/invoices/{id}/activity */
+export function useInvoiceActivity(id, options = {}) {
+  return useQuery({
+    queryKey: duewiseKeys.invoiceActivity(id),
+    queryFn: () => duewiseApi.getInvoiceActivity(id),
+    select: (res) => (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []),
+    enabled: Boolean(id),
+    ...options,
+  })
+}
+
 export function useCreateInvoice() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -106,6 +117,7 @@ export function useRemindInvoice() {
     mutationFn: ({ id, ...payload }) => duewiseApi.remindInvoice(id, payload),
     onSuccess: (_res, vars) => {
       queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoiceActivity(vars.id) })
     },
     onError: (error) => handleError(error, { context: 'duewise.remindInvoice' }),
   })
