@@ -38,6 +38,32 @@ function applyBankFlagsToUser(user, connected) {
   }
 }
 
+/** Normalize GET /api/billing/connect/status (flat or { data: {...} }). */
+function normalizeConnectStatus(payload) {
+  if (!payload || typeof payload !== 'object') return null
+  if (
+    payload.data &&
+    typeof payload.data === 'object' &&
+    ('connected' in payload.data || 'payouts_enabled' in payload.data)
+  ) {
+    return payload.data
+  }
+  return payload
+}
+
+function unwrapUser(payload) {
+  if (!payload || typeof payload !== 'object') return null
+  if (payload.tenant || payload.email || payload.id != null) return payload
+  if (
+    payload.data &&
+    typeof payload.data === 'object' &&
+    (payload.data.tenant || payload.data.email || payload.data.id != null)
+  ) {
+    return payload.data
+  }
+  return null
+}
+
 export default function ConnectBankPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -46,15 +72,22 @@ export default function ConnectBankPage() {
   const user = useAppSelector(selectUser)
   const onboard = useStripeConnectOnboard()
   const {
-    data: connectStatus,
+    data: connectStatusRaw,
     refetch: refetchConnect,
     isFetching: statusFetching,
   } = useStripeConnectStatus()
+  const connectStatus = normalizeConnectStatus(connectStatusRaw)
   const { refetch: refetchUser } = useCurrentUser({ enabled: false })
 
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
   const statusParam = searchParams.get('status')
+
+  const enterAppWithBankReady = (baseUser) => {
+    const nextUser = applyBankFlagsToUser(baseUser || user, true)
+    if (nextUser) dispatch(setUser(nextUser))
+    navigate('/app', { replace: true })
+  }
 
   const markReadyAndEnter = async () => {
     setChecking(true)
@@ -62,31 +95,25 @@ export default function ConnectBankPage() {
     try {
       if (APP_CONFIG.useMockApi) {
         setMockStripeConnectConnected(true)
-        dispatch(setUser(applyBankFlagsToUser(user, true)))
-        navigate('/app', { replace: true })
+        enterAppWithBankReady(user)
         return
       }
 
-      const [statusRes, userRes] = await Promise.all([refetchConnect(), refetchUser()])
-      const stripe = statusRes.data
-      const freshUser = userRes.data
+      const [statusRes, userRes] = await Promise.all([
+        refetchConnect(),
+        refetchUser().catch(() => ({ data: null })),
+      ])
+      const stripe = normalizeConnectStatus(statusRes.data)
+      const freshUser = unwrapUser(userRes?.data)
+
+      // Status API: connected === true → enter dashboard
+      if (Boolean(stripe?.connected) || isUserBankReady(freshUser)) {
+        enterAppWithBankReady(freshUser || user)
+        return
+      }
+
       if (freshUser) dispatch(setUser(freshUser))
-
-      const readyFromUser = isUserBankReady(freshUser)
-      const readyFromStripe =
-        Boolean(stripe?.connected) && Boolean(stripe?.payouts_enabled)
-
-      if (readyFromUser || readyFromStripe) {
-        if (!readyFromUser && freshUser) {
-          dispatch(setUser(applyBankFlagsToUser(freshUser, true)))
-        }
-        navigate('/app', { replace: true })
-        return
-      }
-
-      setError(
-        'Bank account is not ready yet. Finish Stripe onboarding, then tap “I’ve connected”.'
-      )
+      setError('Bank account is not ready yet. Finish Stripe onboarding, then try again.')
     } catch (err) {
       setError(getUserMessage(AppError.fromUnknown(err)))
     } finally {
@@ -99,6 +126,14 @@ export default function ConnectBankPage() {
       navigate('/app', { replace: true })
     }
   }, [user, navigate])
+
+  // Live status already shows connected (e.g. after return from Stripe)
+  useEffect(() => {
+    if (!connectStatus?.connected) return
+    if (isUserBankReady(user)) return
+    enterAppWithBankReady(user)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectStatus?.connected])
 
   useEffect(() => {
     if (statusParam !== 'success' && statusParam !== 'refresh') return
