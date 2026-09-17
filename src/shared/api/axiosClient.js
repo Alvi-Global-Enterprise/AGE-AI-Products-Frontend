@@ -10,7 +10,7 @@ const PROD_API_BASE_URL = 'https://production.nexservepakistan.com/'
 const STAGING_API_BASE_URL = 'https://staging.nexservepakistan.com/'
 
 export const axiosClient = axios.create({
-  baseURL: DEV_API_BASE_URL,
+  baseURL: STAGING_API_BASE_URL,
   timeout: APP_CONFIG.requestTimeoutMs,
   headers: {
     Accept: 'application/json',
