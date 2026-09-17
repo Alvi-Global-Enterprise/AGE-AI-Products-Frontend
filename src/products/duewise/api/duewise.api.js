@@ -474,8 +474,11 @@ export const duewiseApi = {
   /**
    * GET /api/duewise/quickbooks/connect
    * Returns Intuit OAuth authorization_url for QuickBooks Online.
+   * Query: redirect_uri — frontend callback after OAuth.
    */
-  async connectQuickBooks() {
+  async connectQuickBooks(
+    redirectUri = 'https://age-ai-products-frontend.vercel.app/products/duewise/integrations'
+  ) {
     if (APP_CONFIG.useMockApi) {
       await delay(400)
       return {
@@ -485,7 +488,9 @@ export const duewiseApi = {
         },
       }
     }
-    const { data } = await axiosClient.get('/api/duewise/quickbooks/connect')
+    const { data } = await axiosClient.get('/api/duewise/quickbooks/connect', {
+      params: { redirect_uri: redirectUri },
+    })
     return data
   },
 
