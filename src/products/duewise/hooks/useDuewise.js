@@ -103,6 +103,7 @@ export function useMarkInvoicePaid() {
     onSuccess: (_res, vars) => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoiceActivity(vars.id) })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },

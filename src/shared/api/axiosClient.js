@@ -7,6 +7,7 @@ import { attachInterceptors } from '@/shared/api/interceptors'
  */
 const DEV_API_BASE_URL = 'https://dev.nexservepakistan.com/'
 const PROD_API_BASE_URL = 'https://production.nexservepakistan.com/'
+const STAGING_API_BASE_URL = 'https://staging.nexservepakistan.com/'
 
 export const axiosClient = axios.create({
   baseURL: DEV_API_BASE_URL,

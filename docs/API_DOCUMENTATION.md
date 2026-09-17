@@ -39,7 +39,9 @@
      - [`GET /api/duewise/invoices/{id}/prediction`](#get-apiduewiseinvoicesidprediction)
      - [`POST /api/duewise/invoices/{id}/predict`](#post-apiduewiseinvoicesidpredict)
      - [`POST /api/duewise/invoices/{id}/remind`](#post-apiduewiseinvoicesidremind)
+
      - [`GET /api/duewise/invoices/{id}/activity`](#get-apiduewiseinvoicesidactivity)
+  
    - **6.3 QuickBooks Online 2-Way Integration**
      - [`GET /api/duewise/quickbooks/connect`](#get-apiduewisequickbooksconnect)
      - [`GET|POST /api/duewise/quickbooks/callback`](#getpost-apiduewisequickbookscallback)

@@ -11,12 +11,14 @@ import {
   Calendar,
   Hash,
   Bell,
+  Route,
 } from 'lucide-react'
 import { Card, CardContent } from '@/shared/components/ui/Card'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Button } from '@/shared/components/ui/Button'
 import { Skeleton } from '@/shared/components/ui/Skeleton'
 import { Modal } from '@/shared/components/ui/Modal'
+import { Drawer } from '@/shared/components/ui/Drawer'
 import { formatCurrency } from '@/shared/lib/utils'
 import {
   useInvoice,
@@ -51,6 +53,7 @@ export default function InvoiceDetailPage() {
 
   const [editOpen, setEditOpen] = useState(false)
   const [remindOpen, setRemindOpen] = useState(false)
+  const [trackOpen, setTrackOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmPaid, setConfirmPaid] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -119,9 +122,15 @@ export default function InvoiceDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-3.5 w-3.5" />
-            Edit invoice
+          {invoice.status !== 'paid' && (
+            <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+              Edit invoice
+            </Button>
+          )}
+          <Button type="button" variant="secondary" size="sm" onClick={() => setTrackOpen(true)}>
+            <Route className="h-3.5 w-3.5" />
+            Track status
           </Button>
           {invoice.status !== 'paid' && (
             <Button type="button" size="sm" onClick={() => setRemindOpen(true)}>
@@ -135,10 +144,12 @@ export default function InvoiceDetailPage() {
               Mark paid
             </Button>
           )}
-          <Button type="button" variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </Button>
+          {invoice.status !== 'paid' && (
+            <Button type="button" variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
         </div>
       </motion.div>
 
@@ -296,7 +307,25 @@ export default function InvoiceDetailPage() {
         </CardContent>
       </Card>
 
-      <InvoiceActivityFeed invoiceId={invoice.id} />
+      <Drawer
+        open={trackOpen}
+        onClose={() => setTrackOpen(false)}
+        title="Track status"
+        description={
+          invoice.number
+            ? `${invoice.number} · delivery & engagement`
+            : 'Delivery & engagement timeline'
+        }
+        width="lg"
+      >
+        <InvoiceActivityFeed
+          invoiceId={invoice.id}
+          invoiceStatus={invoice.status}
+          paidAt={invoice.paid_at}
+          embedded
+          enabled={trackOpen}
+        />
+      </Drawer>
 
       <EditInvoiceModal
         open={editOpen}

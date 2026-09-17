@@ -307,15 +307,17 @@ export function InvoiceManagement() {
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
                               </Tooltip>
-                              <Tooltip content="Edit invoice">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => setEditInvoiceId(inv.id)}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                              </Tooltip>
+                              {inv.status !== 'paid' && (
+                                <Tooltip content="Edit invoice">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setEditInvoiceId(inv.id)}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                </Tooltip>
+                              )}
                               {inv.status !== 'paid' && (
                                 <Tooltip content="Mark as paid">
                                   <Button
@@ -328,15 +330,17 @@ export function InvoiceManagement() {
                                   </Button>
                                 </Tooltip>
                               )}
-                              <Tooltip content="Delete invoice">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => setConfirmDelete(inv)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 text-rose-600" />
-                                </Button>
-                              </Tooltip>
+                              {inv.status !== 'paid' && (
+                                <Tooltip content="Delete invoice">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setConfirmDelete(inv)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                  </Button>
+                                </Tooltip>
+                              )}
                             </div>
                           </td>
                         </motion.tr>
