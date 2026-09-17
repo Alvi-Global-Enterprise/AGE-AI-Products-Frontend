@@ -16,6 +16,7 @@ export function FormikClientSelect({
   disabled = false,
   addClientHref = '/app/clients',
   onAddClient,
+  onSelect,
 }) {
   const [field, meta, helpers] = useField(name)
   const [open, setOpen] = useState(false)
@@ -139,9 +140,10 @@ export function FormikClientSelect({
                         'flex w-full items-start gap-2 px-4 py-2.5 text-left text-sm transition hover:bg-emerald-50',
                         active && 'bg-emerald-50/80'
                       )}
-                      onClick={() => {
-                        helpers.setValue(c.id)
-                        helpers.setTouched(true)
+                      onClick={async () => {
+                        await helpers.setValue(c.id)
+                        helpers.setTouched(true, false)
+                        onSelect?.(c)
                         setOpen(false)
                       }}
                     >
