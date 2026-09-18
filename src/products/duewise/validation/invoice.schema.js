@@ -1,5 +1,11 @@
 import * as Yup from 'yup'
 import { INVOICE_STATUSES } from '@/products/duewise/constants/invoiceStatus'
+import {
+  MIN_INVOICE_USD,
+  lineItemsTotal,
+  minInvoiceAmount,
+  toUsd,
+} from '@/shared/lib/currencyRates'
 
 export const invoiceInitialValues = {
   client_id: '',
@@ -50,7 +56,22 @@ export const invoiceSchema = Yup.object({
           .nullable(),
       })
     )
-    .min(1, 'Add at least one line item'),
+    .min(1, 'Add at least one line item')
+    .test(
+      'min-usd-equivalent',
+      function minUsdEquivalent(items) {
+        const currency = this.parent?.currency || 'usd'
+        const total = lineItemsTotal(items)
+        const usd = toUsd(total, currency)
+        if (usd + 1e-9 >= MIN_INVOICE_USD) return true
+
+        const minLocal = minInvoiceAmount(currency)
+        const code = String(currency).toUpperCase()
+        return this.createError({
+          message: `Invoice total must be at least $${MIN_INVOICE_USD} USD equivalent (≈ ${minLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${code}).`,
+        })
+      }
+    ),
 })
 
 /** Map API invoice → Formik values */

@@ -18,6 +18,7 @@ import { CURRENCIES } from '@/shared/constants/config'
 import { AppError } from '@/shared/errors/AppError'
 import { getUserMessage } from '@/shared/errors/errorHandler'
 import { formatCurrency } from '@/shared/lib/utils'
+import { MIN_INVOICE_USD, minInvoiceAmount, toUsd } from '@/shared/lib/currencyRates'
 
 function lineSubtotal(item) {
   const qty = Number(item.quantity) || 0
@@ -233,6 +234,24 @@ export function EditInvoiceModal({ open, invoiceId, onClose }) {
                         })}
                       </span>
                     </div>
+                    {(() => {
+                      const minLocal = minInvoiceAmount(values.currency)
+                      const usdEq = toUsd(estimatedTotal, values.currency)
+                      const belowMin = usdEq + 1e-9 < MIN_INVOICE_USD
+                      return (
+                        <p
+                          className={
+                            belowMin
+                              ? 'mt-1 text-[11px] font-medium text-rose-600'
+                              : 'mt-1 text-[11px] text-slate-400'
+                          }
+                        >
+                          Minimum ≈ {formatCurrency(minLocal, { currency: values.currency || 'usd' })}{' '}
+                          (${MIN_INVOICE_USD} USD equivalent)
+                          {belowMin ? ' — increase line items to continue.' : ''}
+                        </p>
+                      )
+                    })()}
                   </div>
 
                   {status && <p className="text-sm text-rose-600">{status}</p>}
