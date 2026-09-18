@@ -115,12 +115,12 @@ export default function InvoiceDetailPage() {
               {formatInvoiceStatus(invoice.status)}
             </Badge>
           </div>
+
           <p className="mt-1 text-sm text-slate-500">
             {invoice.client?.name || `Client #${invoice.client_id}`}
             {invoice.client?.email ? ` · ${invoice.client.email}` : ''}
           </p>
         </div>
-
         <div className="flex flex-wrap gap-2">
           {invoice.status !== 'paid' && (
             <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
