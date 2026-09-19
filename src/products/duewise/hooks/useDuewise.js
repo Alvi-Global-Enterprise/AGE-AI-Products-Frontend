@@ -11,6 +11,16 @@ export function useDuewiseDashboard() {
   })
 }
 
+/** GET /api/duewise/entitlements — permission flags, cycle usage, quota limits & allowed channels */
+export function useDuewiseEntitlements(options = {}) {
+  return useQuery({
+    queryKey: duewiseKeys.entitlements(),
+    queryFn: () => duewiseApi.getEntitlements(),
+    select: (res) => res?.data ?? res,
+    ...options,
+  })
+}
+
 /** GET /api/duewise/forecast — 30-day receivables projection */
 export function useDuewiseForecast() {
   return useQuery({
@@ -62,6 +72,7 @@ export function useCreateInvoice() {
     mutationFn: (payload) => duewiseApi.createInvoice(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.entitlements() })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },
@@ -89,6 +100,7 @@ export function useDeleteInvoice() {
     mutationFn: (id) => duewiseApi.deleteInvoice(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.entitlements() })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },
@@ -172,6 +184,7 @@ export function useQuickBooksSync() {
     mutationFn: (payload) => duewiseApi.syncQuickBooks(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.entitlements() })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.quickbooksStatus() })
       queryClient.invalidateQueries({ queryKey: billingKeys.accountsStatus() })
       queryClient.invalidateQueries({ queryKey: ['clients'] })

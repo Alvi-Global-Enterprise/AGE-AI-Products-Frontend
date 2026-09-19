@@ -1,32 +1,36 @@
 import { useEffect, useState } from 'react'
-import { Bell, Loader2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Bell, Loader2, Mail, Lock, Sparkles, AlertCircle } from 'lucide-react'
 import { Modal } from '@/shared/components/ui/Modal'
 import { Button } from '@/shared/components/ui/Button'
 import { FormSelect } from '@/shared/components/ui/FormSelect'
-import { useRemindInvoice } from '@/products/duewise/hooks/useDuewise'
+import { useRemindInvoice, useDuewiseEntitlements } from '@/products/duewise/hooks/useDuewise'
 import { AppError } from '@/shared/errors/AppError'
 import { getUserMessage } from '@/shared/errors/errorHandler'
-
-const REMIND_CHANNELS = [
-  { value: 'auto', label: 'Auto (Smart Channel AI)' },
-  { value: 'email', label: 'Email' },
-  { value: 'sms', label: 'SMS' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-]
 
 /** POST /api/duewise/invoices/{id}/remind — channel + optional custom_message */
 export function RemindInvoiceModal({ open, invoice, onClose, onSuccess }) {
   const remind = useRemindInvoice()
-  const [channel, setChannel] = useState('auto')
+  const { data: entitlements } = useDuewiseEntitlements()
+
+  const isTrial = Boolean(entitlements?.is_trial)
+  const canUseEmail = entitlements ? entitlements.can_use_email !== false : true
+  const canUseSms = Boolean(entitlements?.can_use_sms)
+  const canUseWhatsapp = Boolean(entitlements?.can_use_whatsapp)
+  const canUseSmartChannel = Boolean(entitlements?.can_use_smart_channel)
+
+  // Default to 'email' if on trial or smart channel is disabled, otherwise 'auto'
+  const defaultChannel = !canUseSmartChannel || isTrial ? 'email' : 'auto'
+  const [channel, setChannel] = useState(defaultChannel)
   const [customMessage, setCustomMessage] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open || !invoice) return
-    setChannel('auto')
+    setChannel(defaultChannel)
     setCustomMessage('')
     setError('')
-  }, [open, invoice])
+  }, [open, invoice, defaultChannel])
 
   if (!invoice) return null
 
@@ -39,18 +43,60 @@ export function RemindInvoiceModal({ open, invoice, onClose, onSuccess }) {
       size="md"
     >
       <div className="space-y-4">
-        <FormSelect
-          id="remind-channel"
-          label="Channel"
-          value={channel}
-          onChange={(e) => setChannel(e.target.value)}
-        >
-          {REMIND_CHANNELS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
+        {isTrial && (
+          <div className="rounded-xl border border-amber-200/90 bg-amber-50/75 p-3.5 text-xs text-amber-900">
+            <div className="flex items-start gap-2.5">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <div className="space-y-1">
+                <p className="font-semibold text-amber-950">
+                  Trial Mode: Email Reminders Only
+                </p>
+                <p className="text-amber-800 leading-relaxed">
+                  On the free trial, payment reminders can only be sent via Email. Upgrade to the
+                  Base plan to unlock WhatsApp, SMS, and Smart Channel AI.
+                </p>
+                <div className="pt-1">
+                  <Link
+                    to="/app/billing?product=duewise"
+                    onClick={onClose}
+                    className="inline-flex items-center gap-1 font-semibold text-emerald-800 hover:text-emerald-900 underline"
+                  >
+                    <Sparkles className="h-3 w-3 text-emerald-600" />
+                    Upgrade to Base Plan
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <FormSelect
+            id="remind-channel"
+            label="Channel"
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+          >
+            <option value="email" disabled={!canUseEmail}>
+              Email {canUseEmail ? '(Available)' : '(Unavailable)'}
             </option>
-          ))}
-        </FormSelect>
+            <option value="auto" disabled={!canUseSmartChannel}>
+              Auto (Smart Channel AI) {!canUseSmartChannel ? '— Base Plan only' : ''}
+            </option>
+            <option value="whatsapp" disabled={!canUseWhatsapp}>
+              WhatsApp {!canUseWhatsapp ? '— Base Plan only' : ''}
+            </option>
+            <option value="sms" disabled={!canUseSms}>
+              SMS {!canUseSms ? '— Base Plan only' : ''}
+            </option>
+          </FormSelect>
+          {!canUseSmartChannel && isTrial && (
+            <p className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500">
+              <Lock className="h-3 w-3 text-slate-400" />
+              WhatsApp, SMS, and Smart AI require an active Base plan subscription.
+            </p>
+          )}
+        </div>
 
         <div className="w-full">
           <label
@@ -69,7 +115,25 @@ export function RemindInvoiceModal({ open, invoice, onClose, onSuccess }) {
           />
         </div>
 
-        {error && <p className="text-sm text-rose-600">{error}</p>}
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+              <div className="space-y-1">
+                <p>{error}</p>
+                {error.includes('upgrade') && (
+                  <Link
+                    to="/app/billing?product=duewise"
+                    onClick={onClose}
+                    className="inline-flex items-center gap-1 font-semibold text-rose-800 underline"
+                  >
+                    Upgrade Plan <Sparkles className="h-3 w-3" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
           <Button type="button" variant="secondary" onClick={onClose} disabled={remind.isPending}>
@@ -108,3 +172,4 @@ export function RemindInvoiceModal({ open, invoice, onClose, onSuccess }) {
     </Modal>
   )
 }
+

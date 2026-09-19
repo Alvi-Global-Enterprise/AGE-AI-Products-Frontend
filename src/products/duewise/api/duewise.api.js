@@ -232,12 +232,61 @@ function paginate(items, params = {}) {
   }
 }
 
+function buildMockEntitlements() {
+  const count = mockInvoices.length
+  const limit = 10
+  const isTrial = true
+  const canCreate = count < limit
+  const remaining = Math.max(0, limit - count)
+  return {
+    plan: 'trial',
+    plan_name: 'Free Trial',
+    is_trial: isTrial,
+    can_create_invoice: canCreate,
+    invoice_count: count,
+    invoice_limit: limit,
+    invoices_remaining: remaining,
+    can_use_email: true,
+    can_use_sms: false,
+    can_use_whatsapp: false,
+    can_use_smart_channel: false,
+    allowed_channels: ['email'],
+    cycle_start: new Date(Date.now() - 2 * 86400000).toISOString(),
+    cycle_end: new Date(Date.now() + 5 * 86400000).toISOString(),
+    upgrade_prompt: {
+      required: !canCreate,
+      target_plan: 'base',
+      message: !canCreate
+        ? 'Trial accounts are limited to a maximum of 10 invoices. Please upgrade to the Base plan to create up to 500 invoices.'
+        : 'Upgrade to Base plan to unlock 500 invoices/month, WhatsApp, SMS, and Smart Channel AI.',
+    },
+  }
+}
+
 export const duewiseApi = {
+  /**
+   * GET /api/duewise/entitlements
+   * Plan limits, permissions, invoice quotas, and allowed reminder channels.
+   */
+  async getEntitlements() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(250)
+      return { data: buildMockEntitlements() }
+    }
+    const { data } = await axiosClient.get('/api/duewise/entitlements')
+    return data
+  },
+
   /** GET /api/duewise/dashboard */
   async getDashboard() {
     if (APP_CONFIG.useMockApi) {
       await delay(450)
-      return { data: MOCK_DASHBOARD }
+      return {
+        data: {
+          ...MOCK_DASHBOARD,
+          plan_limits: buildMockEntitlements(),
+        },
+      }
     }
     const { data } = await axiosClient.get('/api/duewise/dashboard')
     return data
@@ -357,6 +406,25 @@ export const duewiseApi = {
   async createInvoice(payload) {
     if (APP_CONFIG.useMockApi) {
       await delay(600)
+      if (mockInvoices.length >= 10) {
+        const error = new Error(
+          'Trial accounts are limited to a maximum of 10 invoices. Please upgrade to the Base plan to create up to 500 invoices.'
+        )
+        error.isAxiosError = true
+        error.response = {
+          status: 403,
+          data: {
+            message:
+              'Trial accounts are limited to a maximum of 10 invoices. Please upgrade to the Base plan to create up to 500 invoices.',
+            error: 'TRIAL_INVOICE_LIMIT_EXCEEDED',
+            current_count: mockInvoices.length,
+            limit: 10,
+            plan: 'trial',
+            upgrade_url: '/billing/plans?product=duewise',
+          },
+        }
+        throw error
+      }
       const lineItems = payload.line_items || []
       const subtotal = lineItems.reduce(
         (sum, item) => sum + Number(item.quantity || 1) * Number(item.unit_amount || 0),
@@ -455,7 +523,28 @@ export const duewiseApi = {
   async remindInvoice(id, payload = {}) {
     if (APP_CONFIG.useMockApi) {
       await delay(700)
-      const channel = payload.channel && payload.channel !== 'auto' ? payload.channel : 'whatsapp'
+      const requested = payload.channel || 'auto'
+      if (requested === 'whatsapp' || requested === 'sms') {
+        const error = new Error(
+          'SMS and WhatsApp reminders are not available on the free trial. Please upgrade to the Base plan to unlock multi-channel reminders and Smart Channel AI.'
+        )
+        error.isAxiosError = true
+        error.response = {
+          status: 403,
+          data: {
+            message:
+              'SMS and WhatsApp reminders are not available on the free trial. Please upgrade to the Base plan to unlock multi-channel reminders and Smart Channel AI.',
+            error: 'TRIAL_CHANNEL_RESTRICTED',
+            requested_channel: requested,
+            allowed_channels: ['email'],
+            plan: 'trial',
+            upgrade_url: '/billing/plans?product=duewise',
+          },
+        }
+        throw error
+      }
+      // On trial, 'auto' strictly resolves to 'email' without error
+      const channel = 'email'
       return {
         message: `Payment reminder dispatched successfully via ${channel}.`,
         data: {
@@ -566,6 +655,7 @@ export const duewiseApi = {
 export const duewiseKeys = {
   all: ['duewise'],
   dashboard: () => [...duewiseKeys.all, 'dashboard'],
+  entitlements: () => [...duewiseKeys.all, 'entitlements'],
   forecast: () => [...duewiseKeys.all, 'forecast'],
   invoices: (filters) => [...duewiseKeys.all, 'invoices', filters ?? {}],
   invoice: (id) => [...duewiseKeys.all, 'invoice', id],

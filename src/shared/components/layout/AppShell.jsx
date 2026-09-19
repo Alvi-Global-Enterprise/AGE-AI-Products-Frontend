@@ -26,6 +26,7 @@ import { Button } from '@/shared/components/ui/Button'
 import { Badge } from '@/shared/components/ui/Badge'
 import { Avatar } from '@/shared/components/ui/Skeleton'
 import { CreateInvoiceModal } from '@/products/duewise/components/invoices/CreateInvoiceModal'
+import { useDuewiseEntitlements } from '@/products/duewise/hooks/useDuewise'
 import {
   CURRENT_USER,
   PLATFORM,
@@ -373,6 +374,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
 }
 
 export function TopNav({ onMenuClick, onCreateInvoice, onLogout, context }) {
+  const { data: entitlements } = useDuewiseEntitlements()
+  const isTrial = Boolean(entitlements?.is_trial)
+  const invoiceCount = entitlements?.invoice_count ?? 0
+  const invoiceLimit = entitlements?.invoice_limit ?? 10
+  const limitReached = isTrial ? invoiceCount >= invoiceLimit || entitlements?.can_create_invoice === false : false
+
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-slate-200/80 bg-white/80 px-4 backdrop-blur-md sm:px-6">
       <div className="flex items-center gap-3">
@@ -390,6 +397,26 @@ export function TopNav({ onMenuClick, onCreateInvoice, onLogout, context }) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
+        {context.showCreateInvoice && isTrial && (
+          <Link
+            to="/app/billing?product=duewise"
+            className={cn(
+              'hidden items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition sm:inline-flex',
+              limitReached
+                ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                : 'border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100'
+            )}
+            title="Trial limit: 10 invoices total"
+          >
+            <span>
+              Trial: <strong>{invoiceCount}/10</strong>
+            </span>
+            <span className="text-[10px] uppercase font-semibold text-emerald-700 underline">
+              Upgrade
+            </span>
+          </Link>
+        )}
+
         {context.showCreateInvoice && (
           <Button
             onClick={onCreateInvoice}

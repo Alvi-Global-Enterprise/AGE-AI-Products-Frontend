@@ -1,13 +1,15 @@
 import { FieldArray, Form, Formik } from 'formik'
 import { useEffect, useRef } from 'react'
-import { Plus, Trash2, Loader2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Plus, Trash2, Loader2, AlertTriangle, Sparkles } from 'lucide-react'
 import { Modal } from '@/shared/components/ui/Modal'
 import { Button } from '@/shared/components/ui/Button'
+import { Badge } from '@/shared/components/ui/Badge'
 import { FormikAuthField } from '@/modules/auth/components/FormikAuthField'
 import { FormikSelect } from '@/modules/auth/components/FormikSelect'
 import { FormikClientSelect } from '@/shared/components/FormikClientSelect'
 import { useClientsOptions } from '@/modules/clients/hooks/useClients'
-import { useCreateInvoice } from '@/products/duewise/hooks/useDuewise'
+import { useCreateInvoice, useDuewiseEntitlements } from '@/products/duewise/hooks/useDuewise'
 import {
   invoiceInitialValues,
   invoiceSchema,
@@ -59,13 +61,24 @@ function SyncCurrencyFromClient({ clients, clientId, setFieldValue }) {
 export function CreateInvoiceModal({ open, onClose }) {
   const createInvoice = useCreateInvoice()
   const { data: clients = [], isLoading: clientsLoading } = useClientsOptions()
+  const { data: entitlements } = useDuewiseEntitlements()
+
+  const isTrial = Boolean(entitlements?.is_trial)
+  const canCreate = entitlements ? entitlements.can_create_invoice !== false : true
+  const invoiceCount = entitlements?.invoice_count ?? 0
+  const invoiceLimit = entitlements?.invoice_limit ?? 10
+  const remaining = entitlements?.invoices_remaining ?? Math.max(0, invoiceLimit - invoiceCount)
+
+  const modalDescription = isTrial
+    ? `Create an invoice for a client (${remaining} of ${invoiceLimit} trial invoices remaining).`
+    : 'Create an invoice for a client. Syncs to QuickBooks when connected.'
 
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Create Invoice"
-      description="Create an invoice for a client. Syncs to QuickBooks when connected."
+      description={modalDescription}
       size="lg"
     >
       {open && (
@@ -105,6 +118,38 @@ export function CreateInvoiceModal({ open, onClose }) {
                 />
 
                 <div className="max-h-[min(70vh,560px)] space-y-4 overflow-y-auto pr-1">
+                  {!canCreate && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-900">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                        <div className="space-y-1">
+                          <p className="font-semibold text-rose-950">
+                            {isTrial
+                              ? 'Trial limit reached (10 / 10 invoices created)'
+                              : 'Invoice limit reached for this billing cycle'}
+                          </p>
+                          <p className="text-rose-800">
+                            {isTrial
+                              ? 'Trial accounts are limited to a maximum of 10 invoices. Please upgrade to the Base plan to create up to 500 invoices per month.'
+                              : 'Please upgrade your plan to increase your invoice limit.'}
+                          </p>
+                          <div className="pt-1.5">
+                            <Link to="/app/billing?product=duewise" onClick={onClose}>
+                              <Button
+                                size="sm"
+                                type="button"
+                                className="bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                Upgrade to Base Plan
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <FormikClientSelect
                     name="client_id"
                     clients={clients}
@@ -271,19 +316,24 @@ export function CreateInvoiceModal({ open, onClose }) {
                     onClick={onClose}
                     disabled={isSubmitting}
                   >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting || createInvoice.isPending}>
+              Cancel
+            </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || createInvoice.isPending || !canCreate}
+                  >
                     {isSubmitting || createInvoice.isPending ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Creating…
                       </>
+                    ) : !canCreate ? (
+                      'Limit Reached (Upgrade)'
                     ) : (
                       'Create invoice'
                     )}
                   </Button>
-                </div>
+          </div>
               </Form>
             )
           }}

@@ -48,6 +48,21 @@ export function getUserMessage(error) {
       return 'Your profile is already completed.'
     case 'ClientNotFoundException':
       return 'Client not found.'
+    case 'TRIAL_INVOICE_LIMIT_EXCEEDED':
+      return (
+        appError.message ||
+        'Trial accounts are limited to a maximum of 10 invoices. Please upgrade to the Base plan to create more invoices.'
+      )
+    case 'PLAN_INVOICE_LIMIT_EXCEEDED':
+      return (
+        appError.message ||
+        'You have reached your invoice limit for this billing cycle. Please upgrade your plan.'
+      )
+    case 'TRIAL_CHANNEL_RESTRICTED':
+      return (
+        appError.message ||
+        'SMS and WhatsApp reminders are not available on the free trial. Please upgrade to the Base plan to unlock multi-channel reminders.'
+      )
     default:
       break
   }
@@ -57,7 +72,7 @@ export function getUserMessage(error) {
     case 402:
       return 'Payment required — subscribe to continue using this product.'
     case 403:
-      return 'You do not have permission to do that.'
+      return appError.message || 'You do not have permission to do that.'
     case 404:
       return 'We could not find what you were looking for.'
     case 422:

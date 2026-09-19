@@ -3,6 +3,7 @@ import { KPICards } from '@/products/duewise/components/dashboard/KPICards'
 import { CashFlowChart } from '@/products/duewise/components/dashboard/CashFlowChart'
 import { AIPaymentPrediction } from '@/products/duewise/components/dashboard/AIPaymentPrediction'
 import { ChannelTracker } from '@/products/duewise/components/dashboard/ChannelTracker'
+import { TrialUsageBanner } from '@/products/duewise/components/invoices/TrialUsageBanner'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectUser } from '@/app/store/slices/authSlice'
 import { CURRENT_USER } from '@/modules/platform/data/platformData'
@@ -31,6 +32,8 @@ export default function DashboardPage() {
           DueWise overview for {company} — KPIs, forecast, and overdue risk from live data.
         </p>
       </motion.div>
+
+      <TrialUsageBanner />
 
       <KPICards />
 

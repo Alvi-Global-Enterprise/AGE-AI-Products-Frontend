@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
 import { InvoiceManagement } from '@/products/duewise/components/invoices/InvoiceManagement'
+import { TrialUsageBanner } from '@/products/duewise/components/invoices/TrialUsageBanner'
 import { Button } from '@/shared/components/ui/Button'
 import { useQuickBooksSync } from '@/products/duewise/hooks/useDuewise'
 import { useAccountsStatus } from '@/modules/billing/hooks/useBilling'
@@ -107,6 +108,8 @@ export default function InvoicesPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <TrialUsageBanner />
 
       <InvoiceManagement />
 
