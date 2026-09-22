@@ -205,3 +205,42 @@ export function useQuickBooksDisconnect() {
     onError: (error) => handleError(error, { context: 'duewise.quickbooksDisconnect' }),
   })
 }
+
+// ─── 6.5 Monthly Recovery Fee Engine ─────────────────────────────────────────
+
+/** GET /api/duewise/recovery-fee/current-cycle — live accruing meter for the current billing month */
+export function useRecoveryCurrentCycle(options = {}) {
+  return useQuery({
+    queryKey: duewiseKeys.recoveryCurrentCycle(),
+    queryFn: () => duewiseApi.getRecoveryCurrentCycle(),
+    select: (res) => res?.data ?? res,
+    staleTime: 60_000, // refresh every minute for live feel
+    ...options,
+  })
+}
+
+/** GET /api/duewise/recovery-fee/batches — paginated historical billing batch records */
+export function useRecoveryBatches(params = {}, options = {}) {
+  const query = {
+    page: Number(params.page) || 1,
+    per_page: Number(params.per_page) || 15,
+  }
+  return useQuery({
+    queryKey: duewiseKeys.recoveryBatches(query),
+    queryFn: () => duewiseApi.getRecoveryBatches(query),
+    placeholderData: (prev) => prev,
+    ...options,
+  })
+}
+
+/** POST /api/duewise/recovery-fee/batches/{id}/retry — retry a failed charge */
+export function useRetryRecoveryBatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => duewiseApi.retryRecoveryBatch(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'recovery'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.retryRecoveryBatch' }),
+  })
+}

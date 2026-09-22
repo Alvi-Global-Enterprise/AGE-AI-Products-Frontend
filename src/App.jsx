@@ -17,6 +17,7 @@ import DashboardPage from '@/products/duewise/pages/DashboardPage'
 import InvoicesPage from '@/products/duewise/pages/InvoicesPage'
 import InvoiceDetailPage from '@/products/duewise/pages/InvoiceDetailPage'
 import IntegrationsPage from '@/products/duewise/pages/IntegrationsPage'
+import RecoveryFeesPage from '@/products/duewise/pages/RecoveryFeesPage'
 import ConnectBankPage from '@/modules/auth/pages/ConnectBankPage'
 
 function ProtectedLayout({ children }) {
@@ -158,6 +159,14 @@ export default function App() {
           element={
             <ProductLayout product="duewise">
               <IntegrationsPage />
+            </ProductLayout>
+          }
+        />
+        <Route
+          path="/products/duewise/recovery-fees"
+          element={
+            <ProductLayout product="duewise">
+              <RecoveryFeesPage />
             </ProductLayout>
           }
         />

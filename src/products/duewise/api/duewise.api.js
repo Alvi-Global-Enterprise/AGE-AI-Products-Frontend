@@ -650,6 +650,164 @@ export const duewiseApi = {
     const { data } = await axiosClient.post('/api/duewise/quickbooks/disconnect')
     return data
   },
+
+  // ─── 6.5 Monthly Recovery Fee Engine ─────────────────────────────────────
+
+  /**
+   * GET /api/duewise/recovery-fee/current-cycle
+   * Live unbilled overdue recoveries in the current calendar month.
+   */
+  async getRecoveryCurrentCycle() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(450)
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const lastDay = new Date(year, now.getMonth() + 1, 0).getDate()
+      return {
+        data: {
+          current_plan: 'base',
+          fee_percentage: 15.0,
+          period_start: `${year}-${month}-01`,
+          period_end: `${year}-${month}-${lastDay}`,
+          total_overdue_recovered: 7.97,
+          accrued_recovery_fee: 1.20,
+          invoices_count: 2,
+          qualifying_invoices: [
+            {
+              id: 102,
+              number: 'INV-2026-002',
+              client_name: 'Acme Corp Ltd',
+              original_currency: 'PKR',
+              original_amount: 2210,
+              amount_recovered: 7.97,
+              recovered_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+              due_date: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
+              paid_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+            },
+            {
+              id: 104,
+              number: 'INV-2026-004',
+              client_name: 'Metro Transit Partners',
+              original_currency: 'USD',
+              original_amount: 0,
+              amount_recovered: 0,
+              recovered_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+              due_date: new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10),
+              paid_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+            },
+          ],
+        },
+      }
+    }
+    const { data } = await axiosClient.get('/api/duewise/recovery-fee/current-cycle')
+    return data
+  },
+
+  /**
+   * GET /api/duewise/recovery-fee/batches?page=1&per_page=15
+   * Historical recovery billing batches with pagination.
+   */
+  async getRecoveryBatches(params = {}) {
+    const query = {
+      page: Number(params.page) || 1,
+      per_page: Number(params.per_page) || 15,
+    }
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      const MOCK_BATCHES = [
+        {
+          id: 2,
+          period_start: '2026-09-01',
+          period_end: '2026-09-30',
+          total_recovered: 7.97,
+          fee_percentage: 15.0,
+          fee_amount: 1.20,
+          status: 'charged',
+          stripe_invoice_id: 'in_1Px9mock02',
+          charged_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+          can_retry: false,
+          metadata: {
+            invoices_breakdown: [
+              {
+                invoice_id: 102,
+                number: 'INV-2026-002',
+                client_name: 'Acme Corp Ltd',
+                original_currency: 'PKR',
+                original_amount: 2210,
+                converted_usd: 7.97,
+                exchange_rate: 0.003604,
+                recovered_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+              },
+            ],
+          },
+        },
+        {
+          id: 1,
+          period_start: '2026-08-01',
+          period_end: '2026-08-31',
+          total_recovered: 15000.0,
+          fee_percentage: 15.0,
+          fee_amount: 2250.0,
+          status: 'failed',
+          stripe_invoice_id: 'in_1Px8mock01',
+          charged_at: new Date(Date.now() - 33 * 86400000).toISOString(),
+          can_retry: true,
+          metadata: {
+            invoices_breakdown: [
+              {
+                invoice_id: 98,
+                number: 'INV-2026-098',
+                client_name: 'Apex Global Logistics',
+                original_currency: 'USD',
+                original_amount: 6000,
+                converted_usd: 6000,
+                exchange_rate: 1,
+                recovered_at: new Date(Date.now() - 40 * 86400000).toISOString(),
+              },
+              {
+                invoice_id: 95,
+                number: 'INV-2026-095',
+                client_name: 'Metro Transit Partners',
+                original_currency: 'USD',
+                original_amount: 9000,
+                converted_usd: 9000,
+                exchange_rate: 1,
+                recovered_at: new Date(Date.now() - 42 * 86400000).toISOString(),
+              },
+            ],
+          },
+        },
+      ]
+      const page = query.page
+      const perPage = query.per_page
+      const total = MOCK_BATCHES.length
+      const start = (page - 1) * perPage
+      const slice = MOCK_BATCHES.slice(start, start + perPage)
+      return {
+        data: slice,
+        current_page: page,
+        per_page: perPage,
+        total,
+        last_page: Math.max(1, Math.ceil(total / perPage)),
+      }
+    }
+    const { data } = await axiosClient.get('/api/duewise/recovery-fee/batches', { params: query })
+    return data
+  },
+
+  /**
+   * POST /api/duewise/recovery-fee/batches/{id}/retry
+   * Retries a failed recovery fee batch charge.
+   */
+  async retryRecoveryBatch(id) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(1200)
+      return { message: 'Retry initiated successfully. Batch will be charged shortly.' }
+    }
+    const { data } = await axiosClient.post(`/api/duewise/recovery-fee/batches/${id}/retry`)
+    return data
+  },
 }
 
 export const duewiseKeys = {
@@ -661,4 +819,6 @@ export const duewiseKeys = {
   invoice: (id) => [...duewiseKeys.all, 'invoice', id],
   invoiceActivity: (id) => [...duewiseKeys.all, 'invoice', id, 'activity'],
   quickbooksStatus: () => [...duewiseKeys.all, 'quickbooks', 'status'],
+  recoveryCurrentCycle: () => [...duewiseKeys.all, 'recovery', 'current-cycle'],
+  recoveryBatches: (params) => [...duewiseKeys.all, 'recovery', 'batches', params ?? {}],
 }

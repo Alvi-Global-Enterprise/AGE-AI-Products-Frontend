@@ -19,6 +19,7 @@ import {
   Headphones,
   CreditCard,
   Users,
+  BadgeDollarSign,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { cn } from '@/shared/lib/utils'
@@ -47,6 +48,7 @@ const ICONS = {
   Headphones,
   CreditCard,
   Users,
+  BadgeDollarSign,
 }
 
 function BrandMark({ collapsed }) {

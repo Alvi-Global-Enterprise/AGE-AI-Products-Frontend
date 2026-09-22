@@ -327,6 +327,12 @@ export const DUEWISE_PRODUCT = {
     { id: 'cashflow', label: 'Cash Flow', path: '/products/duewise/cashflow', icon: 'TrendingUp' },
     { id: 'sequences', label: 'Sequences', path: '/products/duewise/sequences', icon: 'GitBranch' },
     {
+      id: 'recovery-fees',
+      label: 'Recovery Fees',
+      path: '/products/duewise/recovery-fees',
+      icon: 'BadgeDollarSign',
+    },
+    {
       id: 'integrations',
       label: 'Integrations',
       path: '/products/duewise/integrations',
