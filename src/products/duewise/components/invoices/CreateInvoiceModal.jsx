@@ -64,14 +64,19 @@ export function CreateInvoiceModal({ open, onClose }) {
   const { data: entitlements } = useDuewiseEntitlements()
 
   const isTrial = Boolean(entitlements?.is_trial)
+  const isBase = entitlements?.plan === 'base'
   const canCreate = entitlements ? entitlements.can_create_invoice !== false : true
   const invoiceCount = entitlements?.invoice_count ?? 0
-  const invoiceLimit = entitlements?.invoice_limit ?? 10
-  const remaining = entitlements?.invoices_remaining ?? Math.max(0, invoiceLimit - invoiceCount)
+  const invoiceLimit = entitlements?.invoice_limit ?? (isTrial ? 10 : isBase ? 500 : null)
+  const remaining =
+    entitlements?.invoices_remaining ??
+    (invoiceLimit != null ? Math.max(0, invoiceLimit - invoiceCount) : null)
 
   const modalDescription = isTrial
-    ? `Create an invoice for a client (${remaining} of ${invoiceLimit} trial invoices remaining).`
-    : 'Create an invoice for a client. Syncs to QuickBooks when connected.'
+    ? `Create an invoice for a client (${remaining} of ${invoiceLimit ?? 10} trial invoices remaining).`
+    : invoiceLimit != null
+      ? `Create an invoice for a client (${remaining} of ${invoiceLimit} invoices remaining in current cycle).`
+      : 'Create an invoice for a client. Syncs to QuickBooks when connected.'
 
   return (
     <Modal
@@ -125,13 +130,13 @@ export function CreateInvoiceModal({ open, onClose }) {
                         <div className="space-y-1">
                           <p className="font-semibold text-rose-950">
                             {isTrial
-                              ? 'Trial limit reached (10 / 10 invoices created)'
-                              : 'Invoice limit reached for this billing cycle'}
+                              ? `Trial limit reached (${invoiceLimit ?? 10} / ${invoiceLimit ?? 10} invoices created)`
+                              : `Invoice limit reached (${invoiceLimit ?? 500} / ${invoiceLimit ?? 500} invoices created)`}
                           </p>
                           <p className="text-rose-800">
                             {isTrial
                               ? 'Trial accounts are limited to a maximum of 10 invoices. Please upgrade to the Base plan to create up to 500 invoices per month.'
-                              : 'Please upgrade your plan to increase your invoice limit.'}
+                              : `You have reached your limit of ${invoiceLimit ?? 500} invoices for this billing cycle. Please upgrade to the Big Books plan for unlimited active invoices.`}
                           </p>
                           <div className="pt-1.5">
                             <Link to="/app/billing?product=duewise" onClick={onClose}>
@@ -141,7 +146,7 @@ export function CreateInvoiceModal({ open, onClose }) {
                                 className="bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
                               >
                                 <Sparkles className="h-3.5 w-3.5" />
-                                Upgrade to Base Plan
+                                {isTrial ? 'Upgrade to Base Plan' : 'Upgrade to Big Books'}
                               </Button>
                             </Link>
                           </div>

@@ -12,17 +12,27 @@ export function TrialUsageBanner({ className, compact = false }) {
   if (isLoading || !entitlements) return null
 
   const isTrial = Boolean(entitlements.is_trial)
+  const isBase = entitlements.plan === 'base'
+  const hasInvoiceLimit = entitlements.invoice_limit != null
   const invoiceCount = entitlements.invoice_count ?? 0
-  const invoiceLimit = entitlements.invoice_limit
+  const invoiceLimit = entitlements.invoice_limit ?? (isTrial ? 10 : isBase ? 500 : null)
   const remaining =
     entitlements.invoices_remaining ??
     (invoiceLimit != null ? Math.max(0, invoiceLimit - invoiceCount) : null)
   const canCreate = entitlements.can_create_invoice !== false
-  const limitReached = isTrial ? !canCreate || invoiceCount >= 10 : !canCreate
+  const limitReached = isTrial
+    ? !canCreate || invoiceCount >= 10
+    : !canCreate || (invoiceLimit != null && invoiceCount >= invoiceLimit)
   const percentage = invoiceLimit ? Math.min(100, Math.round((invoiceCount / invoiceLimit) * 100)) : 0
 
-  if (!isTrial && !limitReached && !entitlements.upgrade_prompt?.required) {
-    // Non-trial users with healthy quota don't need a loud trial banner
+  const shouldShow =
+    isTrial ||
+    isBase ||
+    hasInvoiceLimit ||
+    limitReached ||
+    Boolean(entitlements.upgrade_prompt?.required)
+
+  if (!shouldShow) {
     return null
   }
 
@@ -52,8 +62,9 @@ export function TrialUsageBanner({ className, compact = false }) {
               </>
             ) : (
               <>
-                <strong className="font-semibold">{entitlements.plan_name || 'Plan'}:</strong>{' '}
-                {invoiceCount} / {invoiceLimit} invoices used
+                <strong className="font-semibold">{entitlements.plan_name || 'Base Plan'}:</strong>{' '}
+                {invoiceCount} / {invoiceLimit ?? 500} invoices used
+                {limitReached ? ' (Limit reached)' : ` (${remaining} remaining)`}
               </>
             )}
           </span>
@@ -65,7 +76,7 @@ export function TrialUsageBanner({ className, compact = false }) {
             limitReached ? 'text-rose-700' : 'text-emerald-700'
           )}
         >
-          Upgrade plan <ArrowUpRight className="h-3 w-3" />
+          {isTrial ? 'Upgrade plan' : 'Upgrade to Big Books'} <ArrowUpRight className="h-3 w-3" />
         </Link>
       </div>
     )
@@ -91,21 +102,36 @@ export function TrialUsageBanner({ className, compact = false }) {
               variant={limitReached ? 'destructive' : 'emerald'}
               className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider"
             >
-              {isTrial ? 'Free Trial' : entitlements.plan_name || 'Plan'}
+              {isTrial ? 'Free Trial' : entitlements.plan_name || 'Base Plan'}
             </Badge>
 
-            {isTrial && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-                <Mail className="h-3 w-3 text-emerald-600" />
-                Email-only reminders
-              </span>
-            )}
-
-            {isTrial && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-                <Lock className="h-3 w-3 text-slate-400" />
-                SMS, WhatsApp & Smart AI on Base
-              </span>
+            {isTrial ? (
+              <>
+                <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                  <Mail className="h-3 w-3 text-emerald-600" />
+                  Email-only reminders
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                  <Lock className="h-3 w-3 text-slate-400" />
+                  SMS, WhatsApp & Smart AI on Base
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100/80 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                  <Sparkles className="h-3 w-3 text-emerald-600" />
+                  WhatsApp, SMS & Smart AI Included
+                </span>
+                {entitlements.cycle_end && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                    Cycle resets{' '}
+                    {new Date(entitlements.cycle_end).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                )}
+              </>
             )}
           </div>
 
@@ -114,26 +140,30 @@ export function TrialUsageBanner({ className, compact = false }) {
               {limitReached ? (
                 <span className="text-rose-700">
                   {isTrial
-                    ? 'Trial invoice limit reached (10 of 10 created)'
-                    : 'Invoice quota reached for this billing cycle'}
+                    ? `Trial invoice limit reached (${invoiceCount} of ${invoiceLimit ?? 10} created)`
+                    : `Monthly invoice limit reached (${invoiceCount} of ${invoiceLimit ?? 500} created)`}
                 </span>
               ) : (
                 <span>
                   {isTrial
                     ? `Trial Account: ${remaining} of ${invoiceLimit ?? 10} invoices remaining`
-                    : `${remaining} invoices remaining in current cycle`}
+                    : `${entitlements.plan_name || 'Base Plan'}: ${remaining} of ${invoiceLimit ?? 500} invoices remaining`}
                 </span>
               )}
             </h3>
             <p className="mt-0.5 text-xs text-slate-600 sm:text-sm">
               {limitReached
-                ? 'Trial accounts are capped at 10 invoices. Upgrade to the Base plan to unlock 500 invoices/month, multi-channel reminders (WhatsApp & SMS), and Smart Channel AI.'
-                : 'Free trial allows up to 10 invoices and reminders via Email. Upgrade at any time to remove restrictions.'}
+                ? isTrial
+                  ? 'Trial accounts are capped at 10 invoices. Upgrade to the Base plan to unlock 500 invoices/month, multi-channel reminders (WhatsApp & SMS), and Smart Channel AI.'
+                  : `You have reached your limit of ${invoiceLimit ?? 500} invoices for this billing cycle. Upgrade to Big Books for unlimited active invoices.`
+                : isTrial
+                  ? 'Free trial allows up to 10 invoices and reminders via Email. Upgrade at any time to remove restrictions.'
+                  : `Your ${entitlements.plan_name || 'Base Plan'} includes ${invoiceLimit ?? 500} invoices per billing cycle with automated reminders across Email, WhatsApp, SMS, and Smart AI.`}
             </p>
           </div>
 
           {/* Progress bar */}
-          {invoiceLimit && (
+          {invoiceLimit != null && (
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between text-xs font-medium text-slate-600">
                 <span>
@@ -177,7 +207,13 @@ export function TrialUsageBanner({ className, compact = false }) {
               )}
             >
               <Sparkles className="h-4 w-4" />
-              <span>Upgrade to Base Plan</span>
+              <span>
+                {isTrial
+                  ? 'Upgrade to Base Plan'
+                  : entitlements.upgrade_prompt?.target_plan === 'big_books' || !isTrial
+                    ? 'Upgrade to Big Books'
+                    : 'Upgrade Plan'}
+              </span>
             </Button>
           </Link>
         </div>
