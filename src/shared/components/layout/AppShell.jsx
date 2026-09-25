@@ -20,6 +20,7 @@ import {
   CreditCard,
   Users,
   BadgeDollarSign,
+  ShieldCheck,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { cn } from '@/shared/lib/utils'
@@ -49,6 +50,7 @@ const ICONS = {
   CreditCard,
   Users,
   BadgeDollarSign,
+  ShieldCheck,
 }
 
 function BrandMark({ collapsed }) {

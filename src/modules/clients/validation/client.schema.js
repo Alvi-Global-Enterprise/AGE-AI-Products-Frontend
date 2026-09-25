@@ -18,6 +18,10 @@ export const clientSchema = Yup.object({
     .oneOf(['email', 'sms', 'whatsapp', 'call', ''], 'Invalid channel')
     .nullable(),
   risk_tier: Yup.string().oneOf(['low', 'medium', 'high', ''], 'Invalid risk').nullable(),
+  reminder_tone: Yup.string()
+    .oneOf(['professional', 'polite', 'firm', ''], 'Invalid tone')
+    .nullable(),
+  do_not_contact: Yup.boolean().default(false),
 })
 
 export const clientInitialValues = {
@@ -29,6 +33,8 @@ export const clientInitialValues = {
   currency: 'USD',
   tax_number: '',
   address: '',
-  preferred_channel: 'email',
+  preferred_channel: '',
   risk_tier: 'low',
+  reminder_tone: 'polite',
+  do_not_contact: false,
 }

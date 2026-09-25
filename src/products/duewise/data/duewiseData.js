@@ -338,6 +338,11 @@ export const DUEWISE_PRODUCT = {
       path: '/products/duewise/integrations',
       icon: 'Puzzle',
     },
-    { id: 'settings', label: 'Settings', path: '/products/duewise/settings', icon: 'Settings' },
+    {
+      id: 'approvals',
+      label: 'Approval Requests',
+      path: '/products/duewise/approvals',
+      icon: 'ShieldCheck',
+    },
   ],
 }

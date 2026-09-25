@@ -244,3 +244,108 @@ export function useRetryRecoveryBatch() {
     onError: (error) => handleError(error, { context: 'duewise.retryRecoveryBatch' }),
   })
 }
+
+// ─── 6.3 Outbound Approval Mode & Pending Queue Hooks ─────────────────────────
+
+/** GET /api/duewise/reminders/mode */
+export function useReminderMode(options = {}) {
+  return useQuery({
+    queryKey: duewiseKeys.reminderMode(),
+    queryFn: () => duewiseApi.getReminderMode(),
+    select: (res) => res?.data ?? res,
+    staleTime: 15_000,
+    ...options,
+  })
+}
+
+/** POST /api/duewise/reminders/mode — also handles edit mode toggles */
+export function useUpdateReminderMode() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (mode) => duewiseApi.updateReminderMode(mode),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.reminderMode() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'reminders'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.updateReminderMode' }),
+  })
+}
+
+/** POST /api/duewise/reminders/enable-autopilot */
+export function useEnableAutopilot() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => duewiseApi.enableAutopilot(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.reminderMode() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'reminders'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.enableAutopilot' }),
+  })
+}
+
+/** POST /api/duewise/reminders/enable-approval-mode */
+export function useEnableApprovalMode() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => duewiseApi.enableApprovalMode(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.reminderMode() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'reminders'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.enableApprovalMode' }),
+  })
+}
+
+/** GET /api/duewise/reminders/approvals */
+export function useReminderApprovals(params = {}, options = {}) {
+  const query = {
+    page: Number(params.page) || 1,
+    per_page: Number(params.per_page) || 15,
+  }
+  return useQuery({
+    queryKey: duewiseKeys.reminderApprovals(query),
+    queryFn: () => duewiseApi.getReminderApprovals(query),
+    placeholderData: (prev) => prev,
+    ...options,
+  })
+}
+
+/** POST /api/duewise/reminders/approvals/{id}/approve */
+export function useApproveReminder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => duewiseApi.approveReminder(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.reminderMode() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'reminders', 'approvals'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.approveReminder' }),
+  })
+}
+
+/** POST /api/duewise/reminders/approvals/{id}/reject */
+export function useRejectReminder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }) => duewiseApi.rejectReminder(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.reminderMode() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'reminders', 'approvals'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.rejectReminder' }),
+  })
+}
+
+/** POST /api/duewise/reminders/approvals/approve-all */
+export function useApproveAllReminders() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => duewiseApi.approveAllReminders(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.reminderMode() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'reminders', 'approvals'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.approveAllReminders' }),
+  })
+}

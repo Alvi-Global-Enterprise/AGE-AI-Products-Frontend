@@ -30,6 +30,18 @@ export const BUSINESS_CATEGORIES = [
   { value: 'other', label: 'Other' },
 ]
 
+export const BUSINESS_TONES = [
+  { value: 'polite', label: 'Polite' },
+  { value: 'professional', label: 'Professional' },
+  { value: 'firm', label: 'Firm' },
+]
+
+export const REMINDER_TONES = [
+  { value: 'professional', label: 'Professional' },
+  { value: 'polite', label: 'Polite' },
+  { value: 'firm', label: 'Firm' },
+]
+
 export const PREFERRED_CHANNELS = [
   { value: 'email', label: 'Email' },
   { value: 'sms', label: 'SMS' },

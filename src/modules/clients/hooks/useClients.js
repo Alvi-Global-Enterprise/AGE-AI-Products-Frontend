@@ -75,6 +75,15 @@ export function useDeleteClient() {
   })
 }
 
+export function useToggleClientDnc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => clientsApi.toggleDnc(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: clientsKeys.all }),
+    onError: (e) => handleError(e, { context: 'clients.toggleDnc' }),
+  })
+}
+
 export function useClientStats(options = {}) {
   return useQuery({
     queryKey: clientsKeys.stats(),

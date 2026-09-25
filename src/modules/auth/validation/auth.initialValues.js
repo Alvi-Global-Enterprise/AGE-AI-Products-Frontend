@@ -14,6 +14,7 @@ export const completeProfileInitialValues = {
   business_name: '',
   business_type: '',
   business_category: '',
+  business_tone: 'polite',
   business_phone: '',
   country: 'US',
   currency: 'USD',

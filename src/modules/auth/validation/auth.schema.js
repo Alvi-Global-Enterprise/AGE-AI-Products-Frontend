@@ -46,6 +46,9 @@ export const profileBusinessSchema = Yup.object({
   business_name: Yup.string().trim().required('Business name is required').max(255),
   business_type: Yup.string().required('Select a business type'),
   business_category: Yup.string().required('Select a business category'),
+  business_tone: Yup.string()
+    .oneOf(['polite', 'professional', 'firm'], 'Select a valid business tone')
+    .required('Select a business tone'),
   business_phone: optionalPhoneField,
 })
 

@@ -15,6 +15,7 @@ import {
 import {
   BUSINESS_TYPES,
   BUSINESS_CATEGORIES,
+  BUSINESS_TONES,
   COUNTRIES,
   CURRENCIES,
 } from '@/shared/constants/config'
@@ -67,6 +68,7 @@ export default function CompleteProfilePage() {
               business_name: values.business_name.trim(),
               business_type: values.business_type,
               business_category: values.business_category,
+              business_tone: values.business_tone || 'polite',
               business_phone: values.business_phone?.trim() || undefined,
               country: values.country || 'US',
               currency: (values.currency || 'USD').toLowerCase(),
@@ -129,6 +131,13 @@ export default function CompleteProfilePage() {
                     <FormikSelect name="business_category" label="Business category">
                       <option value="">Select category</option>
                       {BUSINESS_CATEGORIES.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </FormikSelect>
+                    <FormikSelect name="business_tone" label="Business tone">
+                      {BUSINESS_TONES.map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
                         </option>

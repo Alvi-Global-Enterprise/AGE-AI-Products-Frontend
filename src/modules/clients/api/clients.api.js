@@ -17,6 +17,8 @@ const MOCK_CLIENTS = [
     preferred_channel: 'email',
     ai_recommended_channel: 'whatsapp',
     effective_channel: 'email',
+    do_not_contact: false,
+    reminder_tone: 'polite',
     ai_late_risk_score: 12.5,
     risk_tier: 'low',
     average_days_to_pay: 14,
@@ -103,6 +105,8 @@ export const clientsApi = {
       const created = {
         ...MOCK_CLIENTS[0],
         ...payload,
+        reminder_tone: payload.reminder_tone || 'polite',
+        do_not_contact: payload.do_not_contact !== undefined ? Boolean(payload.do_not_contact) : false,
         id: Date.now(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -135,6 +139,30 @@ export const clientsApi = {
       return { message: 'Client deleted successfully.' }
     }
     const { data } = await axiosClient.delete(`/api/clients/${id}`)
+    return data
+  },
+
+  /** POST /api/clients/{id}/toggle-dnc */
+  async toggleDnc(id) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(300)
+      let toggled = false
+      mockStore = mockStore.map((c) => {
+        if (String(c.id) === String(id)) {
+          toggled = !c.do_not_contact
+          return { ...c, do_not_contact: toggled, updated_at: new Date().toISOString() }
+        }
+        return c
+      })
+      const found = mockStore.find((c) => String(c.id) === String(id))
+      return {
+        message: toggled
+          ? 'Client marked as Do-Not-Contact. Automated and manual reminders are paused for this client.'
+          : 'Client removed from Do-Not-Contact. Normal reminders resumed.',
+        data: found,
+      }
+    }
+    const { data } = await axiosClient.post(`/api/clients/${id}/toggle-dnc`)
     return data
   },
 

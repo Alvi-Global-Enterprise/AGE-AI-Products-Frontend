@@ -550,6 +550,7 @@ export const duewiseApi = {
         data: {
           log_id: Date.now(),
           channel,
+          tone: payload.tone ?? '',
           recipient: '+15559876543',
           status: 'delivered',
           tracking_token: 'mock-tracking-token',
@@ -808,7 +809,256 @@ export const duewiseApi = {
     const { data } = await axiosClient.post(`/api/duewise/recovery-fee/batches/${id}/retry`)
     return data
   },
+
+  // ─── 6.3 Outbound Approval Mode & Pending Queue ──────────────────────────
+
+  /** GET /api/duewise/reminders/mode */
+  async getReminderMode() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(300)
+      return {
+        data: {
+          ...mockReminderMode,
+          pending_approvals_count: mockApprovals.filter((a) => a.status === 'pending_approval').length,
+        },
+      }
+    }
+    const { data } = await axiosClient.get('/api/duewise/reminders/mode')
+    return data
+  },
+
+  /** POST /api/duewise/reminders/mode */
+  async updateReminderMode(mode) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      const isAuto = mode === 'autopilot'
+      mockReminderMode = {
+        ...mockReminderMode,
+        duewise_mode: mode,
+        is_approval_mode: !isAuto,
+        is_autopilot: isAuto,
+        days_remaining: isAuto ? 0 : 30,
+      }
+      return {
+        message: `Duewise mode successfully updated to ${mode}.`,
+        data: mockReminderMode,
+      }
+    }
+    const { data } = await axiosClient.post('/api/duewise/reminders/mode', { mode })
+    return data
+  },
+
+  /** POST /api/duewise/reminders/enable-autopilot */
+  async enableAutopilot() {
+    if (APP_CONFIG.useMockApi) {
+      return this.updateReminderMode('autopilot')
+    }
+    const { data } = await axiosClient.post('/api/duewise/reminders/enable-autopilot')
+    return data
+  },
+
+  /** POST /api/duewise/reminders/enable-approval-mode */
+  async enableApprovalMode() {
+    if (APP_CONFIG.useMockApi) {
+      return this.updateReminderMode('approval')
+    }
+    const { data } = await axiosClient.post('/api/duewise/reminders/enable-approval-mode')
+    return data
+  },
+
+  /** GET /api/duewise/reminders/approvals */
+  async getReminderApprovals(params = {}) {
+    const query = {
+      page: Number(params.page) || 1,
+      per_page: Number(params.per_page) || 15,
+      ...params,
+    }
+    if (APP_CONFIG.useMockApi) {
+      await delay(350)
+      const pending = mockApprovals.filter((a) => a.status === 'pending_approval')
+      const total = pending.length
+      const start = (query.page - 1) * query.per_page
+      const slice = pending.slice(start, start + query.per_page)
+      return {
+        data: slice,
+        meta: {
+          current_page: query.page,
+          per_page: query.per_page,
+          total,
+          last_page: Math.max(1, Math.ceil(total / query.per_page)),
+        },
+      }
+    }
+    const { data } = await axiosClient.get('/api/duewise/reminders/approvals', { params: query })
+    return data
+  },
+
+  /** POST /api/duewise/reminders/approvals/{id}/approve */
+  async approveReminder(id) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      mockApprovals = mockApprovals.map((a) =>
+        String(a.id) === String(id)
+          ? { ...a, status: 'delivered', approved_at: new Date().toISOString() }
+          : a
+      )
+      const found = mockApprovals.find((a) => String(a.id) === String(id))
+      return {
+        message: `Payment reminder #${id} approved and dispatched successfully.`,
+        data: found,
+      }
+    }
+    const { data } = await axiosClient.post(`/api/duewise/reminders/approvals/${id}/approve`)
+    return data
+  },
+
+  /** POST /api/duewise/reminders/approvals/{id}/reject */
+  async rejectReminder(id, reason) {
+    if (APP_CONFIG.useMockApi) {
+      await delay(400)
+      mockApprovals = mockApprovals.map((a) =>
+        String(a.id) === String(id)
+          ? { ...a, status: 'rejected', rejected_at: new Date().toISOString(), rejection_reason: reason }
+          : a
+      )
+      const found = mockApprovals.find((a) => String(a.id) === String(id))
+      return {
+        message: `Payment reminder #${id} rejected and dismissed.`,
+        data: found,
+      }
+    }
+    const { data } = await axiosClient.post(`/api/duewise/reminders/approvals/${id}/reject`, { reason })
+    return data
+  },
+
+  /** POST /api/duewise/reminders/approvals/approve-all */
+  async approveAllReminders() {
+    if (APP_CONFIG.useMockApi) {
+      await delay(600)
+      const count = mockApprovals.filter((a) => a.status === 'pending_approval').length
+      mockApprovals = mockApprovals.map((a) => ({
+        ...a,
+        status: 'delivered',
+        approved_at: new Date().toISOString(),
+      }))
+      return {
+        message: `All ${count} pending payment reminders have been approved and queued for dispatch.`,
+        data: {
+          approved_count: count,
+        },
+      }
+    }
+    const { data } = await axiosClient.post('/api/duewise/reminders/approvals/approve-all')
+    return data
+  },
 }
+
+let mockReminderMode = {
+  duewise_mode: 'approval',
+  business_tone: 'polite',
+  default_tone: 'polite',
+  is_approval_mode: true,
+  is_autopilot: false,
+  approval_started_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+  days_remaining: 25,
+  pending_approvals_count: 3,
+}
+
+let mockApprovals = [
+  {
+    id: 42,
+    channel: 'email',
+    recipient: 'finance@clientcorp.test',
+    subject: 'Friendly Reminder: Invoice #INV-2026-004 from Acme Corp',
+    body: "Hi John,\n\nWe hope you're having a productive week. Just a quick reminder that invoice #INV-2026-004 for $1,250.00 is due on Sep 28. Please let us know if you need any clarification or updated payment details.",
+    status: 'pending_approval',
+    queued_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+    stage: 'upcoming_due',
+    is_automated: true,
+    is_intent_nudge: false,
+    is_fallback: false,
+    invoice: {
+      id: 104,
+      number: 'INV-2026-004',
+      total_amount: 1250.0,
+      balance_due: 1250.0,
+      currency: 'usd',
+      due_date: '2026-09-28',
+      days_overdue: 0,
+      status: 'open',
+    },
+    client: {
+      id: 18,
+      name: 'John Doe',
+      company_name: 'Client Corp',
+      email: 'finance@clientcorp.test',
+      phone: '+15552345678',
+      whatsapp_phone: '+15552345678',
+    },
+  },
+  {
+    id: 43,
+    channel: 'sms',
+    recipient: '+12025551234',
+    subject: 'Payment notice: Invoice #INV-2026-002',
+    body: 'Hi Sarah, gentle reminder from DueWise that invoice #INV-2026-002 ($3,200.00) is now 12 days past due. Click here to review and settle: https://age.ai/pay/inv_002',
+    status: 'pending_approval',
+    queued_at: new Date(Date.now() - 5 * 3600000).toISOString(),
+    stage: 'first_overdue',
+    is_automated: true,
+    is_intent_nudge: false,
+    is_fallback: false,
+    invoice: {
+      id: 101,
+      number: 'INV-2026-002',
+      total_amount: 3200.0,
+      balance_due: 3200.0,
+      currency: 'usd',
+      due_date: '2026-09-12',
+      days_overdue: 12,
+      status: 'overdue',
+    },
+    client: {
+      id: 1,
+      name: 'Acme Corp Ltd',
+      company_name: 'Acme Corp',
+      email: 'billing@acmecorp.com',
+      phone: '+12025551234',
+      whatsapp_phone: '+12025551234',
+    },
+  },
+  {
+    id: 44,
+    channel: 'whatsapp',
+    recipient: '+15559876543',
+    subject: 'Urgent: Invoice #INV-2026-003 overdue notice',
+    body: 'Hello Apex Logistics team, following up regarding outstanding invoice #INV-2026-003 ($7,000.00) which is 45 days past due. Please process payment today to avoid account escalation.',
+    status: 'pending_approval',
+    queued_at: new Date(Date.now() - 8 * 3600000).toISOString(),
+    stage: 'urgent_escalation',
+    is_automated: true,
+    is_intent_nudge: false,
+    is_fallback: false,
+    invoice: {
+      id: 102,
+      number: 'INV-2026-003',
+      total_amount: 7000.0,
+      balance_due: 7000.0,
+      currency: 'usd',
+      due_date: '2026-08-10',
+      days_overdue: 45,
+      status: 'overdue',
+    },
+    client: {
+      id: 15,
+      name: 'Apex Global Logistics',
+      company_name: 'Apex Logistics Inc',
+      email: 'ap@apexlogistics.test',
+      phone: '+15559876543',
+      whatsapp_phone: '+15559876543',
+    },
+  },
+]
 
 export const duewiseKeys = {
   all: ['duewise'],
@@ -821,4 +1071,6 @@ export const duewiseKeys = {
   quickbooksStatus: () => [...duewiseKeys.all, 'quickbooks', 'status'],
   recoveryCurrentCycle: () => [...duewiseKeys.all, 'recovery', 'current-cycle'],
   recoveryBatches: (params) => [...duewiseKeys.all, 'recovery', 'batches', params ?? {}],
+  reminderMode: () => [...duewiseKeys.all, 'reminders', 'mode'],
+  reminderApprovals: (params) => [...duewiseKeys.all, 'reminders', 'approvals', params ?? {}],
 }

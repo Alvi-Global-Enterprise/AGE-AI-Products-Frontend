@@ -40,6 +40,7 @@ export function AuthShell({ children, mobileSubtitle = 'Done-for-you outcomes' }
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/25 backdrop-blur-sm">
               <span className="text-xs font-bold tracking-tight">AGE</span>
             </div>
+
             <div>
               <p className="text-lg font-semibold tracking-tight">{PLATFORM.name}</p>
               <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-100/80">
@@ -122,14 +123,12 @@ export function StepIndicator({ steps, current }) {
         return (
           <div key={label} className="flex flex-1 flex-col gap-1.5">
             <div
-              className={`h-1 rounded-full transition-colors ${
-                done || active ? 'bg-emerald-500' : 'bg-slate-200'
-              }`}
+              className={`h-1 rounded-full transition-colors ${done || active ? 'bg-emerald-500' : 'bg-slate-200'
+                }`}
             />
             <span
-              className={`text-[10px] font-medium ${
-                active ? 'text-emerald-700' : done ? 'text-slate-500' : 'text-slate-400'
-              }`}
+              className={`text-[10px] font-medium ${active ? 'text-emerald-700' : done ? 'text-slate-500' : 'text-slate-400'
+                }`}
             >
               {label}
             </span>

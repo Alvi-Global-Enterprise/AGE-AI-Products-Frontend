@@ -22,12 +22,14 @@ export function RemindInvoiceModal({ open, invoice, onClose, onSuccess }) {
   // Default to 'email' if on trial or smart channel is disabled, otherwise 'auto'
   const defaultChannel = !canUseSmartChannel || isTrial ? 'email' : 'auto'
   const [channel, setChannel] = useState(defaultChannel)
+  const [tone, setTone] = useState('')
   const [customMessage, setCustomMessage] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open || !invoice) return
     setChannel(defaultChannel)
+    setTone('')
     setCustomMessage('')
     setError('')
   }, [open, invoice, defaultChannel])
@@ -70,33 +72,49 @@ export function RemindInvoiceModal({ open, invoice, onClose, onSuccess }) {
           </div>
         )}
 
-        <div>
-          <FormSelect
-            id="remind-channel"
-            label="Channel"
-            value={channel}
-            onChange={(e) => setChannel(e.target.value)}
-          >
-            <option value="email" disabled={!canUseEmail}>
-              Email {canUseEmail ? '(Available)' : '(Unavailable)'}
-            </option>
-            <option value="auto" disabled={!canUseSmartChannel}>
-              Auto (Smart Channel AI) {!canUseSmartChannel ? '— Base Plan only' : ''}
-            </option>
-            <option value="whatsapp" disabled={!canUseWhatsapp}>
-              WhatsApp {!canUseWhatsapp ? '— Base Plan only' : ''}
-            </option>
-            <option value="sms" disabled={!canUseSms}>
-              SMS {!canUseSms ? '— Base Plan only' : ''}
-            </option>
-          </FormSelect>
-          {!canUseSmartChannel && isTrial && (
-            <p className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500">
-              <Lock className="h-3 w-3 text-slate-400" />
-              WhatsApp, SMS, and Smart AI require an active Base plan subscription.
-            </p>
-          )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <FormSelect
+              id="remind-channel"
+              label="Channel"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+            >
+              <option value="email" disabled={!canUseEmail}>
+                Email {canUseEmail ? '(Available)' : '(Unavailable)'}
+              </option>
+              <option value="auto" disabled={!canUseSmartChannel}>
+                Auto (Smart Channel AI) {!canUseSmartChannel ? '— Base Plan only' : ''}
+              </option>
+              <option value="whatsapp" disabled={!canUseWhatsapp}>
+                WhatsApp {!canUseWhatsapp ? '— Base Plan only' : ''}
+              </option>
+              <option value="sms" disabled={!canUseSms}>
+                SMS {!canUseSms ? '— Base Plan only' : ''}
+              </option>
+            </FormSelect>
+          </div>
+
+          <div>
+            <FormSelect
+              id="remind-tone"
+              label="Tone"
+              value={tone}
+              onChange={(e) => setTone(e.target.value)}
+            >
+              <option value="">Business tone</option>
+              <option value="professional">Professional</option>
+              <option value="polite">Polite</option>
+              <option value="firm">Firm</option>
+            </FormSelect>
+          </div>
         </div>
+        {!canUseSmartChannel && isTrial && (
+          <p className="-mt-2 flex items-center gap-1 text-[11px] text-slate-500">
+            <Lock className="h-3 w-3 text-slate-400" />
+            WhatsApp, SMS, and Smart AI require an active Base plan subscription.
+          </p>
+        )}
 
         <div className="w-full">
           <label
@@ -144,7 +162,10 @@ export function RemindInvoiceModal({ open, invoice, onClose, onSuccess }) {
             disabled={remind.isPending}
             onClick={async () => {
               setError('')
-              const payload = { channel }
+              const payload = {
+                channel,
+                tone: tone || '',
+              }
               if (customMessage.trim()) payload.custom_message = customMessage.trim()
               try {
                 const res = await remind.mutateAsync({ id: invoice.id, ...payload })

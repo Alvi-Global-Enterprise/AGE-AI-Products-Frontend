@@ -467,6 +467,7 @@ Completes user personal profile and tenant business details after OTP verificati
   "business_name": "Acme Legal Solutions LLC",
   "business_type": "llc",
   "business_category": "legal_services",
+  "business_tone": "polite",
   "business_phone": "+15559876543",
   "country": "US",
   "currency": "usd",
@@ -482,6 +483,7 @@ Completes user personal profile and tenant business details after OTP verificati
 | `business_name` | `string` | **Yes** | Registered company name (Max: 255). |
 | `business_type` | `string` | **Yes** | e.g., `'llc'`, `'corporation'`, `'sole_proprietorship'`, `'partnership'`. |
 | `business_category` | `string` | **Yes** | e.g., `'legal_services'`, `'consulting'`, `'medical'`, `'accounting'`. |
+| `business_tone` | `string` | Optional | Tone for customer outreach: `'polite'`, `'professional'`, `'firm'` (default: `'polite'`). |
 | `phone` | `string` | Optional | User direct phone (Max: 50). |
 | `business_phone` | `string` | Optional | Company official phone (Max: 50). |
 | `country` | `string` | Optional | Country code or name (e.g. `'US'`, default `'US'`). |

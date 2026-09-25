@@ -17,6 +17,7 @@ import { getUserMessage } from '@/shared/errors/errorHandler'
 import {
   BUSINESS_TYPES,
   BUSINESS_CATEGORIES,
+  BUSINESS_TONES,
   COUNTRIES,
   CURRENCIES,
 } from '@/shared/constants/config'
@@ -242,6 +243,10 @@ export default function ProfilePage() {
             <Field
               label="Category"
               value={labelFrom(BUSINESS_CATEGORIES, tenant.business_category)}
+            />
+            <Field
+              label="Business tone"
+              value={labelFrom(BUSINESS_TONES, tenant.business_tone)}
             />
             <Field label="Business phone" value={tenant.phone} />
             <Field

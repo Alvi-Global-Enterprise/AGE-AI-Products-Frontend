@@ -18,6 +18,7 @@ import InvoicesPage from '@/products/duewise/pages/InvoicesPage'
 import InvoiceDetailPage from '@/products/duewise/pages/InvoiceDetailPage'
 import IntegrationsPage from '@/products/duewise/pages/IntegrationsPage'
 import RecoveryFeesPage from '@/products/duewise/pages/RecoveryFeesPage'
+import ApprovalRequestsPage from '@/products/duewise/pages/ApprovalRequestsPage'
 import ConnectBankPage from '@/modules/auth/pages/ConnectBankPage'
 
 function ProtectedLayout({ children }) {
@@ -195,12 +196,16 @@ export default function App() {
           }
         />
         <Route
-          path="/products/duewise/settings"
+          path="/products/duewise/approvals"
           element={
             <ProductLayout product="duewise">
-              <PlaceholderPage type="settings" />
+              <ApprovalRequestsPage />
             </ProductLayout>
           }
+        />
+        <Route
+          path="/products/duewise/settings"
+          element={<Navigate to="/products/duewise/approvals" replace />}
         />
 
         <Route path="/dashboard" element={<Navigate to="/products/duewise" replace />} />
