@@ -296,8 +296,8 @@ function ClientPreviewModal({ open, onClose, client, onEdit }) {
           </div>
         </div>
 
-        {/* 2-column Detail Cards */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        {/* Detail Cards (Block-level) */}
+        <div className="space-y-3">
           {/* Contact Details */}
           <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 space-y-2.5">
             <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">

@@ -38,23 +38,90 @@ function riskBadge(prob) {
   return 'paid'
 }
 
-function dueLabel(dueDate) {
-  if (!dueDate) return '—'
-  const due = new Date(`${dueDate}T00:00:00`)
-  if (Number.isNaN(due.getTime())) return dueDate
+function getPredictionStatus(item) {
+  if (item.late_probability != null && item.late_probability !== '') {
+    const late = Number(item.late_probability) || 0
+    return {
+      label: `${late}% late risk`,
+      variant: riskBadge(late),
+      color: riskColor(late),
+      percent: Math.min(100, Math.max(5, late)),
+      isHighRisk: late >= 70,
+    }
+  }
+
+  if (item.confidence) {
+    const raw = String(item.confidence).trim().toLowerCase()
+    if (raw === 'high') {
+      return {
+        label: 'High confidence',
+        variant: 'paid',
+        color: 'bg-emerald-500',
+        percent: 92,
+        isHighRisk: false,
+      }
+    }
+    if (raw === 'medium') {
+      return {
+        label: 'Medium confidence',
+        variant: 'pending',
+        color: 'bg-amber-500',
+        percent: 60,
+        isHighRisk: false,
+      }
+    }
+    if (raw === 'low') {
+      return {
+        label: 'Low confidence',
+        variant: 'overdue',
+        color: 'bg-rose-500',
+        percent: 25,
+        isHighRisk: true,
+      }
+    }
+    return {
+      label: `${item.confidence} confidence`,
+      variant: 'ai',
+      color: 'bg-indigo-500',
+      percent: 75,
+      isHighRisk: false,
+    }
+  }
+
+  return {
+    label: 'Projected',
+    variant: 'paid',
+    color: 'bg-emerald-500',
+    percent: 85,
+    isHighRisk: false,
+  }
+}
+
+function dateLabel(dateStr, isProjected = false) {
+  if (!dateStr) return '—'
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return dateStr
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const diff = Math.round((due.getTime() - today.getTime()) / 86400000)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  const prefix = isProjected ? 'Expected' : 'Due'
   if (diff < 0) return `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} overdue`
-  if (diff === 0) return 'Due today'
-  return `Due in ${diff} day${diff === 1 ? '' : 's'}`
+  if (diff === 0) return `${prefix} today`
+  if (diff === 1) return `${prefix} tomorrow`
+  return `${prefix} in ${diff} day${diff === 1 ? '' : 's'}`
+}
+
+function formatDay(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export function AIPaymentPrediction() {
   const { data: forecast, isLoading, isError, error, refetch } = useDuewiseForecast()
-  const payments = Array.isArray(forecast?.upcoming_payments)
-    ? forecast.upcoming_payments
-    : []
+  const rawPayments = forecast?.upcoming_payments ?? forecast?.data?.upcoming_payments
+  const payments = Array.isArray(rawPayments) ? rawPayments : []
 
   if (isLoading) {
     return <Skeleton className="h-[420px] w-full rounded-2xl" />
@@ -102,8 +169,19 @@ export function AIPaymentPrediction() {
               </p>
             )}
             {payments.map((item, i) => {
-              const late = Number(item.late_probability) || 0
               const name = item.client_name || 'Client'
+              const status = getPredictionStatus(item)
+              const projectedAmount =
+                item.projected_amount ??
+                item.expected_amount ??
+                item.amount_due ??
+                item.balance_due ??
+                0
+              const balanceDue = item.balance_due ?? item.amount_due
+              const projectedDate = item.projected_date || item.predicted_date
+              const targetDate = item.due_date || projectedDate
+              const isProjectedOnly = !item.due_date && Boolean(projectedDate)
+
               return (
                 <motion.div
                   key={item.invoice_id || item.invoice_number || i}
@@ -121,33 +199,46 @@ export function AIPaymentPrediction() {
                         <div>
                           <p className="text-sm font-semibold text-slate-900">{name}</p>
                           <p className="text-xs text-slate-500">
-                            {formatCurrency(item.amount_due ?? item.expected_amount)} ·{' '}
-                            {dueLabel(item.due_date)}
+                            <span className="font-semibold text-slate-700">
+                              {formatCurrency(projectedAmount)}
+                            </span>
+                            {balanceDue && balanceDue !== projectedAmount ? (
+                              <span className="text-slate-400"> (of {formatCurrency(balanceDue)})</span>
+                            ) : null}
+                            {' · '}
+                            <span>{dateLabel(targetDate, isProjectedOnly)}</span>
                           </p>
                         </div>
-                        <Badge variant={riskBadge(late)}>{late}% late risk</Badge>
+                        <div className="flex items-center gap-1.5">
+                          {item.has_promise && (
+                            <Badge variant="pending" className="text-[10px]">
+                              Promise to pay
+                            </Badge>
+                          )}
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </div>
                       </div>
 
                       <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
                         <motion.div
-                          className={cn('h-full rounded-full', riskColor(late))}
+                          className={cn('h-full rounded-full', status.color)}
                           initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(100, late)}%` }}
+                          animate={{ width: `${status.percent}%` }}
                           transition={{ delay: 0.35 + i * 0.05, duration: 0.5 }}
                         />
                       </div>
 
                       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
                         <div className="flex items-center gap-1.5">
-                          {late >= 70 ? (
+                          {status.isHighRisk ? (
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
                           ) : (
-                            <Zap className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                            <Zap className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                           )}
                           <span>
-                            {item.invoice_number || `Invoice #${item.invoice_id}`}
-                            {item.predicted_date
-                              ? ` · predicted ${formatDay(item.predicted_date)}`
+                            {item.invoice_number || (item.invoice_id ? `Invoice #${item.invoice_id}` : 'Invoice')}
+                            {projectedDate
+                              ? ` · predicted ${formatDay(projectedDate)}`
                               : ''}
                           </span>
                         </div>
@@ -170,10 +261,4 @@ export function AIPaymentPrediction() {
       </Card>
     </motion.div>
   )
-}
-
-function formatDay(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return dateStr
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }

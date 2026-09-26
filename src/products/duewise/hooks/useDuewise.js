@@ -113,9 +113,13 @@ export function useMarkInvoicePaid() {
   return useMutation({
     mutationFn: ({ id, ...payload }) => duewiseApi.markInvoicePaid(id, payload),
     onSuccess: (_res, vars) => {
+      const idStr = vars?.id != null ? String(vars.id) : null
+      const idNum = vars?.id != null && !Number.isNaN(Number(vars.id)) ? Number(vars.id) : null
       queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
-      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(vars.id) })
-      queryClient.invalidateQueries({ queryKey: duewiseKeys.invoiceActivity(vars.id) })
+      if (idStr) queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(idStr) })
+      if (idNum !== null) queryClient.invalidateQueries({ queryKey: duewiseKeys.invoice(idNum) })
+      if (idStr) queryClient.invalidateQueries({ queryKey: duewiseKeys.invoiceActivity(idStr) })
+      if (idNum !== null) queryClient.invalidateQueries({ queryKey: duewiseKeys.invoiceActivity(idNum) })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
       queryClient.invalidateQueries({ queryKey: duewiseKeys.forecast() })
     },

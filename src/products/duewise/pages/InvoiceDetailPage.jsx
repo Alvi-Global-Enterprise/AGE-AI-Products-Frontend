@@ -12,6 +12,8 @@ import {
   Hash,
   Bell,
   Route,
+  CreditCard,
+  UserCheck,
 } from 'lucide-react'
 import { Card, CardContent } from '@/shared/components/ui/Card'
 import { Badge } from '@/shared/components/ui/Badge'
@@ -22,6 +24,7 @@ import { Drawer } from '@/shared/components/ui/Drawer'
 import { formatCurrency } from '@/shared/lib/utils'
 import {
   useInvoice,
+  useInvoiceActivity,
   useDeleteInvoice,
   useMarkInvoicePaid,
 } from '@/products/duewise/hooks/useDuewise'
@@ -34,6 +37,21 @@ import {
 } from '@/products/duewise/constants/invoiceStatus'
 import { AppError } from '@/shared/errors/AppError'
 import { getUserMessage } from '@/shared/errors/errorHandler'
+
+function formatWhen(iso) {
+  if (!iso) return null
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
+}
 
 function DetailRow({ label, value }) {
   return (
@@ -48,6 +66,9 @@ export default function InvoiceDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: invoice, isLoading, isError, error, refetch } = useInvoice(id)
+  const { data: activities = [], refetch: refetchActivities } = useInvoiceActivity(id, {
+    enabled: Boolean(id),
+  })
   const deleteInvoice = useDeleteInvoice()
   const markPaid = useMarkInvoicePaid()
 
@@ -89,6 +110,52 @@ export default function InvoiceDetailPage() {
     )
   }
 
+  // Detect if any reminder activity converted or if invoice itself is marked paid
+  const paidActivity = Array.isArray(activities)
+    ? activities.find((a) => a.status === 'paid' || Boolean(a.paid_at) || Boolean(a.metadata?.paid_at))
+    : null
+
+  const isPaid = String(invoice.status || '').toLowerCase() === 'paid' || Boolean(paidActivity)
+  const effectiveStatus = isPaid ? 'paid' : (invoice.status || 'draft')
+  const effectivePaidAt = invoice.paid_at || paidActivity?.paid_at || paidActivity?.metadata?.paid_at
+
+  const isManualPayment =
+    invoice.is_manual_payment === true ||
+    invoice.payment_source === 'manual' ||
+    invoice.payment_method === 'manual' ||
+    (!paidActivity && isPaid)
+
+  const isOnlinePayment =
+    invoice.is_online_payment === true ||
+    invoice.payment_source === 'online' ||
+    Boolean(paidActivity) ||
+    (!isManualPayment && Boolean(invoice.payment_method && invoice.payment_method !== 'manual'))
+
+  const paymentSource =
+    invoice.payment_source ||
+    paidActivity?.payment_source ||
+    paidActivity?.metadata?.payment_source ||
+    (isManualPayment ? 'manual' : isOnlinePayment ? 'online' : null)
+
+  const paymentMethod =
+    invoice.payment_method ||
+    paidActivity?.payment_method ||
+    paidActivity?.metadata?.payment_method ||
+    (isManualPayment ? 'manual' : null)
+
+  const paymentNotes =
+    invoice.payment_notes ||
+    paidActivity?.payment_notes ||
+    paidActivity?.metadata?.payment_notes ||
+    null
+
+  const paymentAmount =
+    invoice.amount_paid ||
+    paidActivity?.payment_amount ||
+    paidActivity?.metadata?.payment_amount ||
+    (isPaid ? invoice.total : null)
+  const balanceDue = isPaid ? 0 : invoice.balance_due
+
   const currency = invoice.currency || 'usd'
   const lineItems = invoice.line_items || []
 
@@ -111,8 +178,8 @@ export default function InvoiceDetailPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
               {invoice.number || `Invoice #${invoice.id}`}
             </h1>
-            <Badge variant={invoiceStatusBadgeVariant(invoice.status)} className="capitalize">
-              {formatInvoiceStatus(invoice.status)}
+            <Badge variant={invoiceStatusBadgeVariant(effectiveStatus)} className="capitalize">
+              {formatInvoiceStatus(effectiveStatus)}
             </Badge>
           </div>
 
@@ -122,7 +189,7 @@ export default function InvoiceDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {invoice.status !== 'paid' && (
+          {!isPaid && (
             <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3.5 w-3.5" />
               Edit invoice
@@ -132,19 +199,19 @@ export default function InvoiceDetailPage() {
             <Route className="h-3.5 w-3.5" />
             Track status
           </Button>
-          {invoice.status !== 'paid' && (
+          {!isPaid && (
             <Button type="button" size="sm" onClick={() => setRemindOpen(true)}>
               <Bell className="h-3.5 w-3.5" />
               Remind
             </Button>
           )}
-          {invoice.status !== 'paid' && (
+          {!isPaid && (
             <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmPaid(true)}>
               <CheckCircle2 className="h-3.5 w-3.5" />
               Mark paid
             </Button>
           )}
-          {invoice.status !== 'paid' && (
+          {!isPaid && (
             <Button type="button" variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" />
               Delete
@@ -152,6 +219,60 @@ export default function InvoiceDetailPage() {
           )}
         </div>
       </motion.div>
+
+      {/* Payment Settled Banner */}
+      {isPaid && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/80 p-4 text-emerald-950 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-200">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-emerald-950">Invoice Settled / Paid</p>
+                {isManualPayment ? (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-100/90 px-2 py-0.5 text-[11px] font-medium uppercase text-emerald-900">
+                    <UserCheck className="h-3 w-3" />
+                    Manual Payment
+                  </span>
+                ) : paymentMethod ? (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-100/90 px-2 py-0.5 text-[11px] font-medium uppercase text-emerald-900">
+                    <CreditCard className="h-3 w-3" />
+                    {paymentMethod.replace(/_/g, ' ')}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-100/90 px-2 py-0.5 text-[11px] font-medium uppercase text-emerald-900">
+                    Online Payment
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-emerald-800">
+                Payment received
+                {effectivePaidAt ? ` on ${formatWhen(effectivePaidAt)}` : ''}
+                {paymentAmount ? ` (${formatCurrency(paymentAmount, { currency })})` : ''}
+                {isManualPayment
+                  ? ' via manual payment entry'
+                  : isOnlinePayment
+                    ? ` via online reminder link${paymentMethod && paymentMethod !== 'manual' ? ` (${paymentMethod.replace(/_/g, ' ')})` : ''}`
+                    : paymentSource
+                      ? ` via ${paymentSource}`
+                      : ''}
+                {paymentNotes ? ` · Note: ${paymentNotes}` : ''}.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-100"
+            onClick={() => setTrackOpen(true)}
+          >
+            <Route className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+            Track status
+          </Button>
+        </div>
+      )}
 
       {actionError && (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -186,21 +307,21 @@ export default function InvoiceDetailPage() {
               />
               <DetailRow
                 label="Balance due"
-                value={formatCurrency(invoice.balance_due, { currency })}
+                value={formatCurrency(balanceDue, { currency })}
               />
               <DetailRow
                 label="Amount paid"
-                value={formatCurrency(invoice.amount_paid, { currency })}
+                value={formatCurrency(paymentAmount ?? 0, { currency })}
               />
               <DetailRow
                 label="Tax"
                 value={formatCurrency(invoice.tax_total, { currency })}
               />
               <DetailRow label="Currency" value={String(currency).toUpperCase()} />
-              <DetailRow label="Aging" value={invoice.aging_bucket} />
+              <DetailRow label="Aging" value={isPaid ? 'Settled' : invoice.aging_bucket} />
               <DetailRow
                 label="Days overdue"
-                value={invoice.days_overdue != null ? String(invoice.days_overdue) : null}
+                value={!isPaid && invoice.days_overdue != null ? String(invoice.days_overdue) : isPaid ? '0 (Paid)' : null}
               />
               <DetailRow label="QuickBooks ID" value={invoice.quickbooks_id} />
             </div>
@@ -217,7 +338,25 @@ export default function InvoiceDetailPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <DetailRow label="Issue date" value={invoice.issue_date} />
             <DetailRow label="Due date" value={invoice.due_date} />
-            <DetailRow label="Paid at" value={invoice.paid_at} />
+            <DetailRow
+              label="Paid at"
+              value={effectivePaidAt ? formatWhen(effectivePaidAt) : invoice.paid_at}
+            />
+            {isPaid && (
+              <DetailRow
+                label="Payment type"
+                value={isManualPayment ? 'Manual Payment' : 'Online Payment'}
+              />
+            )}
+            {paymentMethod && (
+              <DetailRow
+                label="Payment method"
+                value={isManualPayment ? 'Manual Entry' : paymentMethod.replace(/_/g, ' ')}
+              />
+            )}
+            {paymentNotes && (
+              <DetailRow label="Payment notes" value={paymentNotes} />
+            )}
             <DetailRow
               label="AI late probability"
               value={
@@ -320,8 +459,8 @@ export default function InvoiceDetailPage() {
       >
         <InvoiceActivityFeed
           invoiceId={invoice.id}
-          invoiceStatus={invoice.status}
-          paidAt={invoice.paid_at}
+          invoiceStatus={effectiveStatus}
+          paidAt={effectivePaidAt}
           embedded
           enabled={trackOpen}
         />
@@ -361,6 +500,7 @@ export default function InvoiceDetailPage() {
               setActionError('')
               try {
                 await markPaid.mutateAsync({ id: invoice.id })
+                await Promise.all([refetch(), refetchActivities()])
                 setConfirmPaid(false)
               } catch (err) {
                 setActionError(getUserMessage(AppError.fromUnknown(err)))
