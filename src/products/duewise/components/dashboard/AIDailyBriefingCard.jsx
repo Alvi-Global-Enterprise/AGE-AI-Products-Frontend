@@ -279,7 +279,7 @@ export function AIDailyBriefingCard() {
   return (
     <Card className="relative overflow-hidden border-indigo-100 bg-gradient-to-b from-white via-indigo-50/20 to-slate-50/40 shadow-sm transition hover:shadow-md">
       {/* Top subtle indigo glow accent bar */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500" />
+      <div className="h-1.5 w-full bg-gradient-to-r from-green-300 via-green-400 to-emerald-500" />
 
       <CardContent className="space-y-6 p-6 sm:p-7">
         {/* 1. Header with live AI badge & sleek Refresh button */}
