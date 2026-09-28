@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { AIDailyBriefingCard } from '@/products/duewise/components/dashboard/AIDailyBriefingCard'
 import { KPICards } from '@/products/duewise/components/dashboard/KPICards'
 import { CashFlowChart } from '@/products/duewise/components/dashboard/CashFlowChart'
 import { AIPaymentPrediction } from '@/products/duewise/components/dashboard/AIPaymentPrediction'
@@ -32,6 +33,9 @@ export default function DashboardPage() {
           DueWise overview for {company} — KPIs, forecast, and overdue risk from live data.
         </p>
       </motion.div>
+
+      {/* Hero Widget: DueWise AI Daily Briefing & Health Card */}
+      <AIDailyBriefingCard />
 
       <TrialUsageBanner />
 

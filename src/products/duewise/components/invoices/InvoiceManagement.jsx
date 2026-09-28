@@ -29,6 +29,7 @@ import {
   useMarkInvoicePaid,
 } from '@/products/duewise/hooks/useDuewise'
 import { EditInvoiceModal } from '@/products/duewise/components/invoices/EditInvoiceModal'
+import { AIRiskBadge } from '@/products/duewise/components/invoices/AIRiskBadge'
 import {
   formatInvoiceStatus,
   invoiceStatusBadgeVariant,
@@ -193,6 +194,9 @@ export function InvoiceManagement() {
                     Status
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    AI Risk / Forecast
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Aging
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -204,7 +208,7 @@ export function InvoiceManagement() {
                 {isLoading &&
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={`sk-${i}`} className="border-b border-slate-50">
-                      <td className="px-4 py-3.5" colSpan={6}>
+                      <td className="px-4 py-3.5" colSpan={7}>
                         <Skeleton className="h-10 w-full rounded-lg" />
                       </td>
                     </tr>
@@ -212,7 +216,7 @@ export function InvoiceManagement() {
 
                 {!isLoading && isError && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
+                    <td colSpan={7} className="px-4 py-12 text-center">
                       <p className="text-sm text-rose-600">{getUserMessage(error)}</p>
                       <Button
                         variant="secondary"
@@ -285,6 +289,9 @@ export function InvoiceManagement() {
                             >
                               {formatInvoiceStatus(inv.status)}
                             </Badge>
+                          </td>
+                          <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                            <AIRiskBadge invoice={inv} />
                           </td>
                           <td className="px-4 py-3.5">
                             <span className="text-xs font-medium text-slate-600">

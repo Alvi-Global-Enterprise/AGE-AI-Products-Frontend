@@ -208,6 +208,17 @@ export default function App() {
           element={<Navigate to="/products/duewise/approvals" replace />}
         />
 
+        <Route path="/duewise" element={<Navigate to="/products/duewise" replace />} />
+        <Route path="/duewise/dashboard" element={<Navigate to="/products/duewise" replace />} />
+        <Route path="/duewise/invoices" element={<Navigate to="/products/duewise/invoices" replace />} />
+        <Route
+          path="/duewise/invoices/:id"
+          element={
+            <ProductLayout product="duewise">
+              <InvoiceDetailPage />
+            </ProductLayout>
+          }
+        />
         <Route path="/dashboard" element={<Navigate to="/products/duewise" replace />} />
         <Route path="/invoices" element={<Navigate to="/products/duewise/invoices" replace />} />
         <Route path="/login" element={<Navigate to="/auth" replace />} />

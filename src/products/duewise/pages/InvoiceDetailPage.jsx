@@ -31,6 +31,7 @@ import {
 import { EditInvoiceModal } from '@/products/duewise/components/invoices/EditInvoiceModal'
 import { RemindInvoiceModal } from '@/products/duewise/components/invoices/RemindInvoiceModal'
 import { InvoiceActivityFeed } from '@/products/duewise/components/invoices/InvoiceActivityFeed'
+import { AICashFlowIntelligenceCard } from '@/products/duewise/components/invoices/AICashFlowIntelligenceCard'
 import {
   formatInvoiceStatus,
   invoiceStatusBadgeVariant,
@@ -280,6 +281,15 @@ export default function InvoiceDetailPage() {
         </p>
       )}
 
+      {/* AI Cash Flow & Delinquency Intelligence Card */}
+      <AICashFlowIntelligenceCard
+        invoice={invoice}
+        onReminded={() => {
+          refetch()
+          refetchActivities()
+        }}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardContent className="space-y-4 pt-5">
@@ -333,7 +343,7 @@ export default function InvoiceDetailPage() {
         <CardContent className="space-y-4 pt-5">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
             <Calendar className="h-4 w-4 text-slate-400" />
-            Dates & AI
+            Dates & Settlement Audit
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <DetailRow label="Issue date" value={invoice.issue_date} />
@@ -357,18 +367,6 @@ export default function InvoiceDetailPage() {
             {paymentNotes && (
               <DetailRow label="Payment notes" value={paymentNotes} />
             )}
-            <DetailRow
-              label="AI late probability"
-              value={
-                invoice.ai_predicted_late_probability != null
-                  ? `${invoice.ai_predicted_late_probability}%`
-                  : null
-              }
-            />
-            <DetailRow
-              label="AI predicted pay date"
-              value={invoice.ai_predicted_payment_date}
-            />
             <DetailRow
               label="Overdue recovered"
               value={invoice.is_overdue_recovered ? 'Yes' : 'No'}

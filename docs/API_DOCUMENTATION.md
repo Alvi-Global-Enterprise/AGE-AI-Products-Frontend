@@ -25,10 +25,13 @@
    - [`PUT /api/clients/{id}`](#put-apiclientsid)
    - [`DELETE /api/clients/{id}`](#delete-apiclientsid)
    - [`GET /api/clients/stats`](#get-apiclientsstats)
+   - [`POST /api/clients/{id}/toggle-dnc`](#post-apiclientsidtoggle-dnc)
 6. [Endpoint Reference: Duewise (Invoice Management, AI & Collections)](#6-endpoint-reference-duewise-invoice-management-ai--collections)
-   - **6.1 Dashboard & Cash Flow Forecast**
-     - [`GET /api/duewise/dashboard`](#get-apiduewisedashboard)
-     - [`GET /api/duewise/forecast`](#get-apiduewiseforecast)
+    - **6.1 Dashboard, AI Intelligence Briefing & Cash Flow Forecast**
+      - [`GET /api/duewise/dashboard`](#get-apiduewisedashboard)
+      - [`GET /api/duewise/dashboard/ai-briefing`](#get-apiduewisedashboardai-briefing)
+      - [`GET /api/duewise/entitlements`](#get-apiduewiseentitlements)
+      - [`GET /api/duewise/forecast`](#get-apiduewiseforecast)
    - **6.2 Invoices CRUD & Operations**
      - [`GET /api/duewise/invoices`](#get-apiduewiseinvoices)
      - [`POST /api/duewise/invoices`](#post-apiduewiseinvoices)
@@ -36,25 +39,43 @@
      - [`PUT /api/duewise/invoices/{id}`](#put-apiduewiseinvoicesid)
      - [`DELETE /api/duewise/invoices/{id}`](#delete-apiduewiseinvoicesid)
      - [`POST /api/duewise/invoices/{id}/mark-as-paid`](#post-apiduewiseinvoicesidmark-as-paid)
+     - [`POST /api/duewise/invoices/{id}/toggle-dnc`](#post-apiduewiseinvoicesidtoggle-dnc)
      - [`GET /api/duewise/invoices/{id}/prediction`](#get-apiduewiseinvoicesidprediction)
      - [`POST /api/duewise/invoices/{id}/predict`](#post-apiduewiseinvoicesidpredict)
      - [`POST /api/duewise/invoices/{id}/remind`](#post-apiduewiseinvoicesidremind)
-
      - [`GET /api/duewise/invoices/{id}/activity`](#get-apiduewiseinvoicesidactivity)
-  
-   - **6.3 QuickBooks Online 2-Way Integration**
+   - **6.3 Outbound Approval Mode & Pending Queue**
+     - [`GET /api/duewise/reminders/mode`](#get-apiduewiseremindersmode)
+     - [`POST /api/duewise/reminders/mode`](#post-apiduewiseremindersmode)
+     - [`POST /api/duewise/reminders/enable-autopilot`](#post-apiduewiseremindersenable-autopilot)
+     - [`POST /api/duewise/reminders/enable-approval-mode`](#post-apiduewiseremindersenable-approval-mode)
+     - [`GET /api/duewise/reminders/approvals`](#get-apiduewiseremindersapprovals)
+     - [`POST /api/duewise/reminders/approvals/{id}/approve`](#post-apiduewiseremindersapprovalsidapprove)
+     - [`POST /api/duewise/reminders/approvals/{id}/reject`](#post-apiduewiseremindersapprovalsidreject)
+     - [`POST /api/duewise/reminders/approvals/approve-all`](#post-apiduewiseremindersapprovalsapprove-all)
+   - **6.4 Tone Control & AI Preview Copywriter**
+     - [`POST /api/duewise/reminders/tone-preview`](#post-apiduewisereminderstone-preview)
+     - [`POST /api/duewise/reminders/default-tone`](#post-apiduewiseremindersdefault-tone)
+   - **6.5 QuickBooks Online 2-Way Integration**
      - [`GET /api/duewise/quickbooks/connect`](#get-apiduewisequickbooksconnect)
      - [`GET|POST /api/duewise/quickbooks/callback`](#getpost-apiduewisequickbookscallback)
      - [`GET /api/duewise/quickbooks/status`](#get-apiduewisequickbooksstatus)
      - [`POST /api/duewise/quickbooks/sync`](#post-apiduewisequickbookssync)
      - [`POST /api/duewise/quickbooks/disconnect`](#post-apiduewisequickbooksdisconnect)
-   - **6.4 Monthly Recovery Fee Engine (Base 15% vs Big Books 10%)**
-     - [`GET /api/duewise/recovery-fee/current-cycle`](#get-apiduewiserecovery-feecurrent-cycle)
-     - [`GET /api/duewise/recovery-fee/batches`](#get-apiduewiserecovery-feebatches)
-   - **6.5 Public Communication Tracking (No Auth)**
+   - **6.6 Unified Accounts & Integrations Status (QuickBooks + Stripe)**
+     - [`GET /api/accounts/status` (or `/api/duewise/accounts/status`)](#get-apiaccountsstatus)
+   - **6.7 Monthly Recovery Fee Engine (Base 15% vs Big Books 10%)**
+      - [`GET /api/duewise/recovery-fee/current-cycle`](#get-apiduewiserecovery-feecurrent-cycle)
+      - [`GET /api/duewise/recovery-fee/batches`](#get-apiduewiserecovery-feebatches)
+      - [`POST /api/duewise/recovery-fee/batches/{id}/retry`](#post-apiduewiserecovery-feebatchesidretry)
+   - **6.8 Public Communication Tracking (No Auth)**
      - [`GET /api/duewise/track/open/{token}`](#get-apiduewisetrackopentoken)
      - [`GET /api/duewise/track/click/{token}`](#get-apiduewisetrackclicktoken)
-7. [Endpoint Reference: Billing & Subscriptions](#7-endpoint-reference-billing--subscriptions)
+   - **6.9 Public Invoice Payment Portal & Stripe Checkout (No Auth)**
+     - [`GET /pay/{id}`](#get-payid)
+     - [`POST /pay/{id}/checkout`](#post-payidcheckout)
+     - [`GET /pay/{id}/success`](#get-payidsuccess)
+7. [Endpoint Reference: Billing, Stripe Connect & Subscriptions](#7-endpoint-reference-billing--subscriptions)
    - [`GET /api/billing/plans`](#get-apibillingplans)
    - [`GET /api/billing/transactions`](#get-apibillingtransactions)
    - [`POST /api/billing/setup-intent`](#post-apibillingsetup-intent)
@@ -65,6 +86,10 @@
    - [`POST /api/billing/subscribe`](#post-apibillingsubscribe)
    - [`POST /api/billing/cancel`](#post-apibillingcancel)
    - [`POST /api/billing/performance-fees`](#post-apibillingperformance-fees)
+   - **Stripe Connect (Bank Account Attachment & Direct Payouts)**
+     - [`POST /api/billing/connect/onboard`](#post-apibillingconnectonboard)
+     - [`GET /api/billing/connect/status`](#get-apibillingconnectstatus)
+     - [`GET /api/billing/connect/login-link`](#get-apibillingconnectlogin-link)
    - [Product & Plan Catalog](#product--plan-catalog)
 8. [Standard Error Responses](#8-standard-error-responses)
 9. [Complete TypeScript Definitions](#9-complete-typescript-definitions)
@@ -435,6 +460,7 @@ Fetches current authenticated user information and associated tenant.
       "timezone": "America/New_York",
       "website": "https://acmelegal.com",
       "tax_id": "EIN-12-3456789",
+      "business_tone": "professional",
       "trial_ends_at": null,
       "on_trial": false
     }
@@ -458,13 +484,13 @@ Completes user personal profile and tenant business details after OTP verificati
   "business_name": "Acme Legal Solutions LLC",
   "business_type": "llc",
   "business_category": "legal_services",
-  "business_tone": "polite",
   "business_phone": "+15559876543",
   "country": "US",
   "currency": "usd",
   "timezone": "America/New_York",
   "website": "https://acmelegal.com",
-  "tax_id": "EIN-12-3456789"
+  "tax_id": "EIN-12-3456789",
+  "business_tone": "professional"
 }
 ```
 
@@ -474,7 +500,6 @@ Completes user personal profile and tenant business details after OTP verificati
 | `business_name` | `string` | **Yes** | Registered company name (Max: 255). |
 | `business_type` | `string` | **Yes** | e.g., `'llc'`, `'corporation'`, `'sole_proprietorship'`, `'partnership'`. |
 | `business_category` | `string` | **Yes** | e.g., `'legal_services'`, `'consulting'`, `'medical'`, `'accounting'`. |
-| `business_tone` | `string` | Optional | Tone for customer outreach: `'polite'`, `'professional'`, `'firm'` (default: `'polite'`). |
 | `phone` | `string` | Optional | User direct phone (Max: 50). |
 | `business_phone` | `string` | Optional | Company official phone (Max: 50). |
 | `country` | `string` | Optional | Country code or name (e.g. `'US'`, default `'US'`). |
@@ -482,6 +507,7 @@ Completes user personal profile and tenant business details after OTP verificati
 | `timezone` | `string` | Optional | e.g. `'America/New_York'`. |
 | `website` | `string` | Optional | Valid URL (e.g. `'https://acmelegal.com'`). |
 | `tax_id` | `string` | Optional | EIN / VAT / Tax ID number. |
+| `business_tone` | `string` | Optional | Default brand reminder voice: `'polite'`, `'professional'`, or `'firm'`. **Defaults to `'professional'` if omitted.** |
 
 #### Response: `200 OK`
 ```json
@@ -506,6 +532,7 @@ Completes user personal profile and tenant business details after OTP verificati
       "timezone": "America/New_York",
       "website": "https://acmelegal.com",
       "tax_id": "EIN-12-3456789",
+      "business_tone": "professional",
       "trial_ends_at": null,
       "on_trial": false
     }
@@ -530,12 +557,15 @@ All client endpoints are tenant-scoped automatically. A tenant can only access a
 - **Access Requirement**: Requires an authenticated user with a permanent token (`Bearer <permanent_token>`). **NO product subscription or trial is required** to create, view, list, update, or delete clients. Clients represent the tenant's own CRM directory and are accessible completely free without subscribing to any product. (Product subscriptions such as `duewise` are only required for invoice collection automation endpoints like `/api/invoices`).
 
 ### `GET /api/clients`
-List all clients under the current tenant.
+List all clients under the current tenant with pagination support.
 
 - **Auth Required**: Yes (`Bearer <permanent_token>`)
 - **Query Parameters**:
-  - `risk_tier` (Optional): Filter by risk level (`'low'`, `'medium'`, `'high'`).
-  - `search` (Optional): Text search by client name, company name, or email.
+  - `page` (Optional, integer, default: `1`): Current page number.
+  - `per_page` (Optional, integer, default: `15`, max: `100`): Number of records per page.
+  - `risk_tier` (Optional, string): Filter by risk level (`'low'`, `'medium'`, `'high'`, `'critical'`).
+  - `do_not_contact` (Optional, boolean): Filter clients by DNC status (`true` or `false`).
+  - `search` (Optional, string): Text search by client name, company name, or email.
 
 #### Response: `200 OK`
 ```json
@@ -555,6 +585,9 @@ List all clients under the current tenant.
       "preferred_channel": "email",
       "ai_recommended_channel": "whatsapp",
       "effective_channel": "email",
+      "do_not_contact": false,
+      "reminder_tone": "polite",
+      "resolved_tone": "polite",
       "ai_late_risk_score": 12.5,
       "risk_tier": "low",
       "average_days_to_pay": 14,
@@ -568,7 +601,21 @@ List all clients under the current tenant.
       "created_at": "2026-09-08T18:30:00.000000Z",
       "updated_at": "2026-09-08T18:30:00.000000Z"
     }
-  ]
+  ],
+  "links": {
+    "first": "https://api.example.com/api/clients?page=1",
+    "last": "https://api.example.com/api/clients?page=3",
+    "prev": null,
+    "next": "https://api.example.com/api/clients?page=2"
+  },
+  "meta": {
+    "current_page": 1,
+    "from": 1,
+    "last_page": 3,
+    "per_page": 15,
+    "to": 15,
+    "total": 35
+  }
 }
 ```
 
@@ -591,6 +638,8 @@ Create a new client for the tenant.
   "tax_number": "TAX-12345",
   "address": "123 Business Way, Suite 400, New York, NY",
   "preferred_channel": "email",
+  "do_not_contact": false,
+  "reminder_tone": "polite",
   "risk_tier": "low"
 }
 ```
@@ -606,12 +655,14 @@ Create a new client for the tenant.
 | `tax_number` | `string` | Optional | Max: 100. |
 | `address` | `string` | Optional | Max: 1000. |
 | `preferred_channel` | `string` | Optional | `'email'`, `'sms'`, `'whatsapp'`, `'call'`. |
+| `do_not_contact` | `boolean` | Optional | Set to `true` to block all automated/manual collection reminders for this client. Default: `false`. |
+| `reminder_tone` | `string` | Optional | Override tone for this client: `'polite'`, `'professional'`, `'firm'`, or `null` (inherit tenant default). |
 | `risk_tier` | `string` | Optional | `'low'`, `'medium'`, `'high'`. |
 | `quickbooks_id` | `string` | Optional | QuickBooks customer ID. |
 | `metadata` | `object` | Optional | Key-value JSON object. |
 
 #### Response: `201 Created`
-Returns the created `Client` object in `{ "data": { ... } }`.
+Returns the created `Client` object in `{ "data": { ... } }` (includes `do_not_contact`, `reminder_tone`, and `resolved_tone`).
 
 ---
 
@@ -686,6 +737,26 @@ Returns aggregated client statistics, financial totals, and risk tier distributi
 
 ---
 
+### `POST /api/clients/{id}/toggle-dnc`
+1-Click toggle to switch a client between normal contact and **Do-Not-Contact (DNC)** status. When enabled (`do_not_contact: true`), all automated daily cron scans and manual reminders are blocked for this client.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Client marked as Do-Not-Contact. Automated and manual reminders are paused for this client.",
+  "data": {
+    "id": 1,
+    "name": "Acme Corp Ltd",
+    "do_not_contact": true,
+    "updated_at": "2026-09-24T18:00:00.000000Z"
+  }
+}
+```
+*(If toggled back to `false`: `"message": "Client removed from Do-Not-Contact. Normal reminders resumed."`)*
+
+---
+
 ## 6. Endpoint Reference: Duewise (Invoice Management, AI & Collections)
 
 All endpoints under `/api/duewise/*` require an authenticated user (`Bearer <permanent_token>`) with active access to `duewise` (`subscribed:duewise` middleware), except public tracking routes (`/api/duewise/track/*`) and the OAuth2 callback route (`/api/duewise/quickbooks/callback`), which can be accessed without authentication to support browser redirects.
@@ -733,10 +804,256 @@ Returns aggregated financial KPIs, status distribution, aging breakdown matrix (
         "overdue_amount": 7000.0,
         "max_days_overdue": 45
       }
+    ],
+    "plan_limits": {
+      "plan": "trial",
+      "plan_name": "Free Trial",
+      "is_trial": true,
+      "can_create_invoice": true,
+      "invoice_count": 8,
+      "invoice_limit": 10,
+      "invoices_remaining": 2,
+      "can_use_email": true,
+      "can_use_sms": false,
+      "can_use_whatsapp": false,
+      "can_use_smart_channel": false,
+      "allowed_channels": ["email"],
+      "cycle_start": "2026-09-19T00:00:00.000000Z",
+      "cycle_end": "2026-09-26T00:00:00.000000Z",
+      "upgrade_prompt": {
+        "required": false,
+        "target_plan": "base",
+        "message": "Upgrade to Base plan to unlock 500 invoices/month, WhatsApp, SMS, and Smart Channel AI."
+      }
+    },
+    "ai_briefing": {
+      "generated_at": "2026-09-29T08:00:00+00:00",
+      "cached": false,
+      "cooldown_active": false,
+      "portfolio_health": {
+        "score": 85,
+        "tier": "optimal",
+        "label": "Optimal Cash Flow",
+        "status_color": "#059669",
+        "summary_metric": "92% on-schedule"
+      },
+      "briefing": {
+        "headline": "🔮 DueWise AI Daily Briefing: 3 Overdue Invoices (1 Critical Exposure)",
+        "executive_summary": "DueWise detected payment risk across 3 open invoices today. 1 invoice requires immediate attention (Apex Logistics, 22 days late) for which an escalated WhatsApp sequence is recommended. The remaining 2 invoices exhibit low delinquency risk and can be handled via routine courtesy follow-up. Approximately USD 45,000.00 is projected for recovery over the next 7 days (89% confidence).",
+        "tone": "urgent",
+        "engine": "gemini-ai"
+      },
+      "metrics": {
+        "currency": "USD",
+        "total_outstanding": 18500.0,
+        "total_overdue": 12000.0,
+        "overdue_count": 3,
+        "high_risk_clients_count": 1,
+        "projected_7d_recovery": 45000.0,
+        "projected_30d_recovery": 88000.0,
+        "pending_approvals_count": 2,
+        "duewise_mode": "approval",
+        "is_autopilot": false
+      },
+      "insights": [ ... ],
+      "recommended_actions": [ ... ]
+    }
+  }
+}
+```
+
+---
+
+#### `GET /api/duewise/dashboard/ai-briefing`
+Returns the **DueWise AI Daily Briefing & Cash Flow Intelligence Card**. Contains portfolio health score (0-100), natural language briefing synthesized in clean professional fintech English, key behavioral insights, and 1-click recommended actions.
+
+> **Caching & Cost Protection**: Cached per tenant until midnight (`endOfDay`). A 5-minute cooldown is enforced for manual refresh (`?refresh=true`) to protect against token spam and excessive LLM billing.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Query Parameters**:
+  - `refresh` (`boolean`, optional): Force cache refresh and trigger Gemini generative synthesis if cooldown is inactive. Example: `?refresh=true`.
+- **Response: `200 OK`**:
+```json
+{
+  "data": {
+    "generated_at": "2026-09-29T08:00:00+00:00",
+    "cached": false,
+    "cooldown_active": false,
+    "portfolio_health": {
+      "score": 85,
+      "tier": "optimal",
+      "label": "Optimal Cash Flow",
+      "status_color": "#059669",
+      "summary_metric": "92% on-schedule"
+    },
+    "briefing": {
+      "headline": "🔮 DueWise AI Daily Briefing: 3 Overdue Invoices (1 Critical Exposure)",
+      "executive_summary": "DueWise detected payment risk across 3 open invoices today. 1 invoice requires immediate attention (Apex Logistics, 22 days late) for which an escalated WhatsApp sequence is recommended. The remaining 2 invoices exhibit low delinquency risk and can be handled via routine courtesy follow-up. Approximately USD 45,000.00 is projected for recovery over the next 7 days (89% confidence).",
+      "tone": "urgent",
+      "engine": "gemini-ai"
+    },
+    "metrics": {
+      "currency": "USD",
+      "total_outstanding": 18500.0,
+      "total_overdue": 12000.0,
+      "overdue_count": 3,
+      "high_risk_clients_count": 1,
+      "projected_7d_recovery": 45000.0,
+      "projected_30d_recovery": 88000.0,
+      "pending_approvals_count": 2,
+      "duewise_mode": "approval",
+      "is_autopilot": false
+    },
+    "insights": [
+      {
+        "id": "insight_overdue_critical_101",
+        "category": "risk_alert",
+        "title": "Critical Delinquency Exposure Alert",
+        "description": "Apex Logistics has an overdue balance of $8,500.00 (22 days past due, High Risk). Historical delay average: 35 days.",
+        "urgency": "high",
+        "metric_label": "Critical Delay",
+        "metric_value": "22 days",
+        "client_id": 15,
+        "client_name": "Apex Logistics",
+        "invoice_id": 101,
+        "invoice_number": "INV-CRITICAL-01"
+      },
+      {
+        "id": "insight_routine_overdue",
+        "category": "risk_alert",
+        "title": "Routine Low-Risk Overdue Accounts",
+        "description": "2 open invoices ($3,000.00 total) are in early overdue stage (avg 3 days past due) with clean customer history. Handled via automated courtesy follow-up.",
+        "urgency": "low",
+        "metric_label": "Low-Risk Overdue",
+        "metric_value": "2 invoices"
+      },
+      {
+        "id": "insight_forecast_7d",
+        "category": "cash_flow",
+        "title": "7-Day Cash Flow Projection",
+        "description": "AI predicts $45,000.00 in anticipated collections across the next 7 days based on client behavioral velocity.",
+        "urgency": "info",
+        "metric_label": "7-Day Inflow",
+        "metric_value": "$45,000.00"
+      },
+      {
+        "id": "insight_channel_opt_15",
+        "category": "channel_optimization",
+        "title": "Smart Channel Switch: WhatsApp",
+        "description": "AI behavioral routing recommends WhatsApp for Apex Logistics to ensure highest read rate and prompt settlement.",
+        "urgency": "medium",
+        "metric_label": "Recommended Channel",
+        "metric_value": "WhatsApp"
+      }
+    ],
+    "recommended_actions": [
+      {
+        "id": "action_remind_high_101",
+        "type": "quick_remind",
+        "priority": "critical",
+        "title": "Send AI WhatsApp Escalation",
+        "description": "Escalate Apex Logistics for invoice INV-CRITICAL-01 (USD 8,500.00, 22 days late) using firm, urgent recovery tone.",
+        "badge": "Critical Priority",
+        "button_text": "Send WhatsApp Now",
+        "api_endpoint": "/api/duewise/invoices/101/remind",
+        "method": "POST",
+        "payload": {
+          "channel": "whatsapp",
+          "tone": "firm"
+        },
+        "invoice_id": 101,
+        "invoice_number": "INV-CRITICAL-01",
+        "client_name": "Apex Logistics",
+        "amount": 8500.0,
+        "currency": "USD"
+      },
+      {
+        "id": "action_remind_routine_102",
+        "type": "quick_remind",
+        "priority": "medium",
+        "title": "Send Courtesy Email Reminder",
+        "description": "Send friendly reminder to Beta Corp for invoice INV-ROUTINE-01 (USD 1,200.00) using polite courtesy tone.",
+        "badge": "Routine Follow-up",
+        "button_text": "Send Courtesy Email",
+        "api_endpoint": "/api/duewise/invoices/102/remind",
+        "method": "POST",
+        "payload": {
+          "channel": "email",
+          "tone": "polite"
+        },
+        "invoice_id": 102,
+        "invoice_number": "INV-ROUTINE-01",
+        "client_name": "Beta Corp",
+        "amount": 1200.0,
+        "currency": "USD"
+      },
+      {
+        "id": "action_review_approvals",
+        "type": "review_approvals",
+        "priority": "medium",
+        "title": "Review 2 AI Reminders",
+        "description": "Approve queued reminders with one click or view individual drafts.",
+        "badge": "Pending Review",
+        "button_text": "Approve All Reminders",
+        "api_endpoint": "/api/duewise/reminders/approvals/approve-all",
+        "method": "POST",
+        "payload": [],
+        "target_url": "/duewise/reminders/approvals"
+      }
     ]
   }
 }
 ```
+
+---
+
+#### `GET /api/duewise/entitlements`
+Returns dedicated frontend-ready permission flags, cycle usage, and quota limits. Use this endpoint to directly toggle and disable UI buttons and reminder channel options in the frontend.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Response: `200 OK`**:
+```json
+{
+  "data": {
+    "plan": "trial",
+    "plan_name": "Free Trial",
+    "is_trial": true,
+    "can_create_invoice": true,
+    "invoice_count": 8,
+    "invoice_limit": 10,
+    "invoices_remaining": 2,
+    "can_use_email": true,
+    "can_use_sms": false,
+    "can_use_whatsapp": false,
+    "can_use_smart_channel": false,
+    "allowed_channels": [
+      "email"
+    ],
+    "cycle_start": "2026-09-19T00:00:00.000000Z",
+    "cycle_end": "2026-09-26T00:00:00.000000Z",
+    "upgrade_prompt": {
+      "required": false,
+      "target_plan": "base",
+      "message": "Upgrade to Base plan to unlock 500 invoices/month, WhatsApp, SMS, and Smart Channel AI."
+    }
+  }
+}
+```
+
+##### Frontend Key Reference:
+| Key | Type | Description | Frontend UI Usage |
+|---|---|---|---|
+| `can_create_invoice` | `boolean` | `true` if tenant has quota remaining, `false` if limit reached (10 on trial or 500 on base). | `<button disabled={!can_create_invoice}>Create Invoice</button>` |
+| `can_use_smart_channel` | `boolean` | `true` on Base / Big Books, `false` on trial. | Disable AI / Smart Channel auto-mode toggle |
+| `can_use_whatsapp` | `boolean` | `true` on Base / Big Books, `false` on trial. | `<input type="radio" value="whatsapp" disabled={!can_use_whatsapp} />` |
+| `can_use_sms` | `boolean` | `true` on Base / Big Books, `false` on trial. | `<input type="radio" value="sms" disabled={!can_use_sms} />` |
+| `can_use_email` | `boolean` | `true` across all tiers. | Email option is always enabled |
+| `invoice_count` | `integer` | Invoices created within current billing cycle / trial. | Displayed in usage progress bar (e.g. `8 / 10`) |
+| `invoice_limit` | `integer \| null` | 10 for trial, 500 for Base, `null` for Big Books (unlimited). | Quota ceiling |
+| `invoices_remaining` | `integer \| null` | Remaining invoices allowed before upgrade required. | Display remaining counter badge |
+| `upgrade_prompt` | `object` | Indicates whether an upgrade prompt modal/banner should show. | Render upgrade banner |
 
 ---
 
@@ -856,6 +1173,36 @@ Lists invoices belonging to the authenticated tenant. Supports filtering by clie
       "quickbooks_id": "QB-INV-5001",
       "ai_predicted_late_probability": 18.5,
       "ai_predicted_payment_date": "2026-09-15",
+      "ai_prediction": {
+        "probability": 18.5,
+        "risk_tier": "low",
+        "risk_label": "Low Delinquency Risk",
+        "risk_color": "#10b981",
+        "badge_text": "On-Schedule (18.5%)",
+        "predicted_payment_date": "2026-09-15",
+        "predicted_payment_date_formatted": "Sep 15, 2026",
+        "estimated_delay_days": 0,
+        "confidence_score": 95.0,
+        "confidence_label": "95.0% Confidence",
+        "risk_factors": [
+          "Client maintains a 100% on-time payment track record."
+        ],
+        "summary_hover_text": "Predicted settlement: Sep 15, 2026 (95.0% confidence). Client maintains a 100% on-time payment track record.",
+        "recommended_action": {
+          "channel": "email",
+          "channel_label": "Email",
+          "tone": "polite",
+          "action_text": "Send AI Email Reminder",
+          "is_trial_restricted": false,
+          "suggested_premium_channel": null,
+          "api_endpoint": "/api/duewise/invoices/101/remind",
+          "method": "POST",
+          "payload": {
+            "channel": "email",
+            "tone": "polite"
+          }
+        }
+      },
       "created_at": "2026-09-01T10:00:00.000000Z",
       "updated_at": "2026-09-01T10:00:00.000000Z"
     }
@@ -916,9 +1263,35 @@ Creates a new invoice with line items. If QuickBooks Online is connected, the in
 | `line_items.*.quantity` | `number` | Optional | Quantity (default: 1). |
 | `line_items.*.unit_amount` | `number` | **Yes** (if item sent) | Price per unit. |
 | `line_items.*.tax_amount` | `number` | Optional | Tax amount for this item (default: 0). |
-| `metadata` | `object` | Optional | Arbitrary JSON key-value pairs. |
-
 - **Response: `201 Created`**: Returns the complete created `InvoiceResource`.
+
+##### Plan Limit Enforcement & Errors:
+- **Trial Tenants**: Capped at **10 invoices** total during the free trial. Attempting to create an 11th invoice returns:
+  ```json
+  // Status: 403 Forbidden
+  {
+    "message": "Trial accounts are limited to a maximum of 10 invoices. Please upgrade to the Base plan to create up to 500 invoices.",
+    "error": "TRIAL_INVOICE_LIMIT_EXCEEDED",
+    "current_count": 10,
+    "limit": 10,
+    "plan": "trial",
+    "upgrade_url": "/billing/plans?product=duewise"
+  }
+  ```
+- **Base Plan Tenants**: Capped at **500 invoices per billing cycle (month)**. Quota automatically refreshes when the billing month renews, or resets immediately if the user cancels and re-subscribes. Attempting to create a 501st invoice returns:
+  ```json
+  // Status: 403 Forbidden
+  {
+    "message": "You have reached the monthly limit of 500 invoices for the Base plan. Please upgrade to the Big Books plan for unlimited invoices.",
+    "error": "PLAN_INVOICE_LIMIT_EXCEEDED",
+    "current_count": 500,
+    "limit": 500,
+    "plan": "base",
+    "cycle_start": "2026-09-19T00:00:00.000000Z",
+    "upgrade_url": "/billing/plans?product=duewise"
+  }
+  ```
+- **Big Books Plan Tenants**: Unlimited invoices.
 
 ---
 
@@ -948,6 +1321,38 @@ Returns a single invoice with its line items and client relationship loaded.
     "aging_bucket": "current",
     "is_overdue_recovered": false,
     "quickbooks_id": "QB-INV-5002",
+    "ai_predicted_late_probability": 23.75,
+    "ai_predicted_payment_date": "2026-09-28",
+    "ai_prediction": {
+      "probability": 23.75,
+      "risk_tier": "low",
+      "risk_label": "Low Delinquency Risk",
+      "risk_color": "#10b981",
+      "badge_text": "On-Schedule (23.75%)",
+      "predicted_payment_date": "2026-09-28",
+      "predicted_payment_date_formatted": "Sep 28, 2026",
+      "estimated_delay_days": 0,
+      "confidence_score": 94.8,
+      "confidence_label": "94.8% Confidence",
+      "risk_factors": [
+        "Client historically paid late on 25% of previous invoices."
+      ],
+      "summary_hover_text": "Predicted settlement: Sep 28, 2026 (94.8% confidence). Client historically paid late on 25% of previous invoices.",
+      "recommended_action": {
+        "channel": "email",
+        "channel_label": "Email",
+        "tone": "polite",
+        "action_text": "Send AI Email Reminder",
+        "is_trial_restricted": false,
+        "suggested_premium_channel": null,
+        "api_endpoint": "/api/duewise/invoices/101/remind",
+        "method": "POST",
+        "payload": {
+          "channel": "email",
+          "tone": "polite"
+        }
+      }
+    },
     "client": {
       "id": 15,
       "name": "Apex Global Logistics",
@@ -1027,6 +1432,27 @@ Manual fallback to mark an invoice as paid. If the invoice was overdue (`days_ov
 
 ---
 
+#### `POST /api/duewise/invoices/{id}/toggle-dnc`
+1-Click toggle to set or remove **Do-Not-Contact (DNC)** status for a specific invoice. When an invoice has DNC enabled, daily automated reminder crons completely skip it.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Invoice marked as Do-Not-Contact. Automated and manual reminders are paused for this invoice.",
+  "data": {
+    "id": 101,
+    "number": "INV-2026-002",
+    "do_not_contact": true,
+    "updated_at": "2026-09-24T18:00:00.000000Z"
+  }
+}
+```
+*(If toggled back to `false`: `"message": "Invoice removed from Do-Not-Contact. Normal reminders resumed."`)*
+
+---
+
 #### `GET /api/duewise/invoices/{id}/prediction`
 Fetches AI payment delinquency risk probability, estimated payment date, confidence score, and explainable risk factors.
 
@@ -1038,13 +1464,33 @@ Fetches AI payment delinquency risk probability, estimated payment date, confide
   "data": {
     "probability": 68.5,
     "risk_tier": "medium",
+    "risk_label": "Elevated Delinquency Risk",
+    "risk_color": "#f59e0b",
+    "badge_text": "Elevated Risk (68.5%)",
     "predicted_payment_date": "2026-09-28",
+    "predicted_payment_date_formatted": "Sep 28, 2026",
     "estimated_delay_days": 14,
     "confidence_score": 86.3,
+    "confidence_label": "86.3% Confidence",
     "risk_factors": [
       "Client historically paid late on 45% of previous invoices.",
       "Client broke 1 previously committed payment promise(s)."
-    ]
+    ],
+    "summary_hover_text": "Predicted settlement: Sep 28, 2026 (86.3% confidence). Client historically paid late on 45% of previous invoices.",
+    "recommended_action": {
+      "channel": "email",
+      "channel_label": "Email",
+      "tone": "firm",
+      "action_text": "Send Courtesy Email (WhatsApp unlocks on paid plan)",
+      "is_trial_restricted": true,
+      "suggested_premium_channel": "WhatsApp",
+      "api_endpoint": "/api/duewise/invoices/101/remind",
+      "method": "POST",
+      "payload": {
+        "channel": "email",
+        "tone": "firm"
+      }
+    }
   }
 }
 ```
@@ -1061,7 +1507,10 @@ Re-runs the AI late payment prediction algorithm and persists the scores (`ai_pr
 ---
 
 #### `POST /api/duewise/invoices/{id}/remind`
-Dispatches a collection reminder to the client. Can let AI select the channel (`auto`) based on past client responsiveness, or specify an explicit channel (`email`, `sms`, `whatsapp`).
+Dispatches an instant collection reminder to the client. Uses OpenAI to craft dynamic tone-adjusted messaging (or deterministic fallback templates). Reminders initiated directly by a user from the invoice page bypass the outbound approval queue (`skip_approval: true`).
+
+> **Twilio Platform Architecture**:
+> All SMS and WhatsApp reminders are dispatched through the platform's centralized Twilio account (`TWILIO_ACCOUNT_SID`, `TWILIO_FROM_NUMBER`, `TWILIO_WHATSAPP_FROM`). Individual tenants do NOT need to configure their own Twilio or WhatsApp business accounts. Duewise automatically includes the tenant's business name in the reminder message body (e.g., *"This is a reminder from [Company Name] that Invoice #INV-2026-002 is due..."*) so clients instantly recognize the sender.
 
 - **Auth Required**: Yes (`Bearer <permanent_token>`)
 - **Product Access Required**: `duewise`
@@ -1069,14 +1518,18 @@ Dispatches a collection reminder to the client. Can let AI select the channel (`
 ```json
 {
   "channel": "auto",
-  "custom_message": "Hi Apex Logistics, this is a friendly reminder that invoice #INV-2026-002 is due on Sep 24."
+  "tone": "polite",
+  "custom_message": "Hi Apex Logistics, this is a friendly reminder that invoice #INV-2026-002 is due on Sep 24.",
+  "force_dnc": false
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `channel` | `string` | Optional | `'auto'` (Smart Channel AI), `'email'`, `'sms'`, or `'whatsapp'`. Default: `'auto'`. |
-| `custom_message` | `string` | Optional | Custom message override. If omitted, default template is dispatched. |
+| `tone` | `string` | Optional | Explicit reminder voice: `'polite'`, `'professional'`, or `'firm'`. If omitted, resolves automatically via hierarchy (`Client -> Tenant business_tone -> 'professional'`). |
+| `custom_message` | `string` | Optional | Custom message override. If omitted, OpenAI AI Writer crafts the copy. |
+| `force_dnc` | `boolean` | Optional | Set to `true` to deliberately override when client or invoice is on **Do-Not-Contact (DNC)**. Default: `false`. |
 
 - **Response: `200 OK`**:
 ```json
@@ -1092,13 +1545,44 @@ Dispatches a collection reminder to the client. Can let AI select the channel (`
 }
 ```
 
+##### Trial Channel Restrictions & Errors:
+- **Free Trial**: Reminders are strictly limited to **Email**.
+  - If a trial user specifies `channel: "whatsapp"` or `channel: "sms"`, the API rejects the request with `403 Forbidden`:
+    ```json
+    // Status: 403 Forbidden
+    {
+      "message": "SMS and WhatsApp reminders are not available on the free trial. Please upgrade to the Base plan to unlock multi-channel reminders and Smart Channel AI.",
+      "error": "TRIAL_CHANNEL_RESTRICTED",
+      "requested_channel": "whatsapp",
+      "allowed_channels": ["email"],
+      "plan": "trial",
+      "upgrade_url": "/billing/plans?product=duewise"
+    }
+    ```
+  - If a trial user sends `channel: "auto"`, Duewise automatically resolves the channel strictly to `"email"` without error, ensuring automated follow-up sequences never break.
+- **Base Plan & Big Books**: Unrestricted access to `email`, `sms`, `whatsapp`, and `auto` (Smart Channel AI).
+
+##### Do-Not-Contact (DNC) Error:
+- If a client or invoice has `do_not_contact: true` and the request does not provide `"force_dnc": true`, the reminder is blocked with `422 Unprocessable Content`:
+  ```json
+  // Status: 422 Unprocessable Content
+  {
+    "message": "Cannot send reminder: This client or invoice is marked as Do-Not-Contact. Pass 'force_dnc: true' to override.",
+    "error": "DO_NOT_CONTACT_RESTRICTED",
+    "is_dnc": true
+  }
+  ```
+
 ---
 
 #### `GET /api/duewise/invoices/{id}/activity`
-Returns the chronological audit trail and communication log for this invoice (sent reminders, delivery events, email opens, payment link clicks, and client replies).
+Returns the paginated chronological audit trail and communication log for this invoice (sent reminders, delivery events, email opens, payment link clicks, and client replies).
 
 - **Auth Required**: Yes (`Bearer <permanent_token>`)
 - **Product Access Required**: `duewise`
+- **Query Parameters**:
+  - `page` (Optional, integer, default: `1`): Current page number.
+  - `per_page` (Optional, integer, default: `15`, max: `100`): Number of records per page.
 - **Response: `200 OK`**:
 ```json
 {
@@ -1115,13 +1599,330 @@ Returns the chronological audit trail and communication log for this invoice (se
       "clicked_at": "2026-09-10T14:16:05.000000Z",
       "replied_at": null
     }
-  ]
+  ],
+  "current_page": 1,
+  "per_page": 15,
+  "total": 1,
+  "last_page": 1
 }
 ```
 
 ---
 
-### 6.3 QuickBooks Online 2-Way Integration
+### 6.3 Outbound Approval Mode & Pending Queue
+
+Duewise features a **30-Day Safeguard Window** designed to give new tenants full visibility and peace of mind before automation takes over:
+1. **Approval Mode (Default for first 30 days)**: All daily automated milestone reminders are staged into a **Pending Approvals Queue** (`status: 'pending_approval'`) rather than dispatched immediately. The user can review, edit, approve individually, bulk-approve, or dismiss/reject reminders.
+2. **Auto-Pilot Mode**: Automated reminders are dispatched directly to the client via Smart Channel AI (Email/SMS/WhatsApp) without requiring manual intervention.
+3. **One-Click Graduation**: At any time, the user can click **"Switch to Auto-Pilot"** via the UI once they feel confident in the messaging. Conversely, they can switch back to **Approval Mode** at any time. After 30 days, tenants automatically graduate to Auto-Pilot unless explicitly kept in Approval Mode.
+
+---
+
+#### `GET /api/duewise/reminders/mode`
+Fetches the tenant's current Duewise operational mode (`'approval'` or `'autopilot'`), remaining safeguard days, and count of pending outbound reminders.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Response: `200 OK`**:
+```json
+{
+  "data": {
+    "duewise_mode": "approval",
+    "business_tone": "professional",
+    "default_tone": "professional",
+    "is_approval_mode": true,
+    "is_autopilot": false,
+    "approval_started_at": "2026-09-24T18:00:00.000000Z",
+    "days_remaining": 30,
+    "pending_approvals_count": 4
+  }
+}
+```
+
+---
+
+#### `POST /api/duewise/reminders/mode`
+Updates the operational mode to either `'approval'` or `'autopilot'`.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Request Body**:
+```json
+{
+  "mode": "autopilot"
+}
+```
+| Parameter | Type | Required | Allowed Values |
+|---|---|---|---|
+| `mode` | `string` | **Yes** | `'approval'`, `'autopilot'`. |
+
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Duewise mode successfully updated to autopilot.",
+  "data": {
+    "duewise_mode": "autopilot",
+    "is_approval_mode": false,
+    "is_autopilot": true,
+    "days_remaining": 0
+  }
+}
+```
+
+---
+
+#### `POST /api/duewise/reminders/enable-autopilot`
+One-click shortcut action for the user to graduate immediately to Auto-Pilot.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Duewise Auto-Pilot enabled successfully. All automated reminders will now dispatch automatically without approval.",
+  "data": {
+    "duewise_mode": "autopilot",
+    "is_approval_mode": false,
+    "is_autopilot": true,
+    "enabled_at": "2026-09-24T18:30:00.000000Z"
+  }
+}
+```
+
+---
+
+#### `POST /api/duewise/reminders/enable-approval-mode`
+One-click shortcut action to return the tenant to Outbound Approval Mode.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Duewise Outbound Approval Mode enabled successfully. Automated reminders will require manual approval before sending.",
+  "data": {
+    "duewise_mode": "approval",
+    "is_approval_mode": true,
+    "is_autopilot": false,
+    "days_remaining": 30
+  }
+}
+```
+
+---
+
+#### `GET /api/duewise/reminders/approvals`
+Returns the paginated queue of automated reminders awaiting user review and approval before dispatch.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Query Parameters**:
+  - `page` (Optional, integer, default: `1`): Current page number.
+  - `per_page` (Optional, integer, default: `15`, max: `100`): Items per page.
+- **Response: `200 OK`**:
+```json
+{
+  "data": [
+    {
+      "id": 42,
+      "channel": "email",
+      "recipient": "finance@clientcorp.test",
+      "subject": "Friendly Reminder: Invoice #INV-2026-004 from Acme Corp",
+      "body": "Hi John,\n\nWe hope you're having a productive week. Just a quick reminder that invoice #INV-2026-004 for $1,250.00 is due on Sep 28...",
+      "status": "pending_approval",
+      "queued_at": "2026-09-24T09:00:00.000000Z",
+      "stage": "upcoming_due",
+      "is_automated": true,
+      "is_intent_nudge": false,
+      "is_fallback": false,
+      "invoice": {
+        "id": 104,
+        "number": "INV-2026-004",
+        "total_amount": 1250.0,
+        "balance_due": 1250.0,
+        "currency": "usd",
+        "due_date": "2026-09-28",
+        "days_overdue": 0,
+        "status": "open"
+      },
+      "client": {
+        "id": 18,
+        "name": "John Doe",
+        "company_name": "Client Corp",
+        "email": "finance@clientcorp.test",
+        "phone": "+15552345678",
+        "whatsapp_phone": "+15552345678"
+      }
+    }
+  ],
+  "links": {
+    "first": "https://api.example.com/api/duewise/reminders/approvals?page=1",
+    "last": "https://api.example.com/api/duewise/reminders/approvals?page=1",
+    "prev": null,
+    "next": null
+  },
+  "meta": {
+    "current_page": 1,
+    "from": 1,
+    "last_page": 1,
+    "per_page": 15,
+    "to": 1,
+    "total": 1
+  }
+}
+```
+
+---
+
+#### `POST /api/duewise/reminders/approvals/{id}/approve`
+Approves a specific pending reminder and immediately dispatches it via its target channel (Email, SMS, or WhatsApp).
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Payment reminder #42 approved and dispatched successfully via email.",
+  "data": {
+    "id": 42,
+    "status": "delivered",
+    "channel": "email",
+    "recipient": "finance@clientcorp.test",
+    "approved_at": "2026-09-24T18:45:00.000000Z"
+  }
+}
+```
+
+---
+
+#### `POST /api/duewise/reminders/approvals/{id}/reject`
+Dismisses a pending reminder from the outbound queue without sending it to the client.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Request Body**:
+```json
+{
+  "reason": "Client promised check payment in the mail."
+}
+```
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `reason` | `string` | Optional | Optional rejection or dismissal note. |
+
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Payment reminder #42 rejected and dismissed.",
+  "data": {
+    "id": 42,
+    "status": "rejected",
+    "rejected_at": "2026-09-24T18:46:00.000000Z",
+    "rejection_reason": "Client promised check payment in the mail."
+  }
+}
+```
+
+---
+
+#### `POST /api/duewise/reminders/approvals/approve-all`
+One-click bulk approval for all pending reminders currently in the tenant's outbound queue.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Successfully approved and dispatched 4 pending reminder(s).",
+  "approved_count": 4
+}
+```
+
+---
+
+### 6.4 Tone Control & AI Preview Copywriter
+
+Duewise enables tenants to tailor the emotional resonance and authority of their payment reminders using a 3-tier hierarchy:
+1. **Client Specific Override (`client.reminder_tone`)**: Can be set to `'polite'`, `'professional'`, or `'firm'`.
+2. **Tenant Default Brand Voice (`tenant.business_tone`)**: Selected during Onboarding / Complete Profile, defaults to `'professional'`.
+3. **System Fallback**: Defaults to `'professional'`.
+
+#### AI Writer Integration (OpenAI API + Deterministic Fallback)
+- **OpenAI Dynamic Copywriting**: When reminders are queued or dispatched, Duewise calls OpenAI using the configured tone and recipient channel.
+  - **Email**: Detailed, brand-aligned body with invoice breakdown and payment link.
+  - **SMS**: Strictly enforces character limit under **160 characters**.
+  - **WhatsApp**: Formatted with markdown bolding (`*...*`), key invoice highlights, and emojis (`👋`, `⚠️`).
+- **Resilient Fallback**: If `OPENAI_API_KEY` is unconfigured, rate-limited, or encounters a timeout, Duewise automatically generates rich, deterministic pre-built templates without throwing errors or interrupting collection workflows (`tone_source: "template"`).
+
+---
+
+#### `POST /api/duewise/reminders/tone-preview`
+Generates a real-time preview of the reminder subject and body copy for an invoice before sending, allowing the user to experiment with different tones and channels. Does **not** send or log any communication.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Request Body**:
+```json
+{
+  "invoice_id": 104,
+  "channel": "email",
+  "tone": "polite",
+  "stage": "upcoming_due"
+}
+```
+
+| Parameter | Type | Required | Allowed Values |
+|---|---|---|---|
+| `invoice_id` | `integer` | **Yes** | Target invoice ID. |
+| `channel` | `string` | Optional | `'email'`, `'sms'`, `'whatsapp'`. Default: `'email'`. |
+| `tone` | `string` | Optional | `'polite'`, `'professional'`, `'firm'`. Default: client/tenant tone. |
+| `stage` | `string` | Optional | Collection stage (e.g., `'upcoming_due'`, `'grace_period'`, `'overdue'`). |
+
+- **Response: `200 OK`**:
+```json
+{
+  "data": {
+    "invoice_id": 104,
+    "channel": "email",
+    "tone": "polite",
+    "stage": "upcoming_due",
+    "subject": "Friendly Reminder: Invoice #INV-2026-004 from Acme Corp",
+    "message": "Hi John,\n\nWe hope you're having a productive week! Just a gentle note that invoice #INV-2026-004 for $1,250.00 is due in 3 days...",
+    "source": "ai"
+  }
+}
+```
+*(If OpenAI is unavailable, `"source": "template"` is returned).*
+
+---
+
+#### `POST /api/duewise/reminders/default-tone`
+Updates the tenant's default reminder tone (`business_tone`).
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **Request Body**:
+```json
+{
+  "business_tone": "polite"
+}
+```
+*(Accepts either `"business_tone"` or `"tone"`)*
+
+- **Response: `200 OK`**:
+```json
+{
+  "message": "Default reminder tone successfully updated to polite.",
+  "data": {
+    "business_tone": "polite",
+    "default_tone": "polite"
+  }
+}
+```
+
+---
+
+### 6.5 QuickBooks Online 2-Way Integration
 
 #### `GET /api/duewise/quickbooks/connect`
 Generates an Intuit OAuth2 authorization URL for connecting the tenant's QuickBooks Online company. Encrypts tenant identity, timestamp, and optional `redirect_uri` into the `state` parameter for CSRF security.
@@ -1231,19 +2032,155 @@ Disconnects QuickBooks Online for the tenant and disables automated syncing.
 
 ---
 
-### 6.4 Monthly Recovery Fee Engine (Base 15% vs Big Books 10%)
+### 6.6 Unified Accounts & Integrations Status (QuickBooks Online + Stripe Connect)
 
-Platform charges a success fee only on **overdue amounts successfully recovered** each month. The fee is charged as a single monthly batch (never per invoice).
+Consolidates both QuickBooks Online sync state and Stripe Connect bank account connection status into a single, unified query. Frontends should prioritize calling this endpoint to power settings pages, dashboard integration widgets, and payout readiness banners rather than making multiple individual requests.
+
+#### `GET /api/accounts/status` (or `GET /api/duewise/accounts/status`)
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: Optional / Open to all authenticated tenants (available on `/api/accounts/status` and within Duewise on `/api/duewise/accounts/status`).
+- **Response: `200 OK`**:
+```json
+{
+  "data": {
+    "quickbooks": {
+      "is_connected": true,
+      "realm_id": "9341457883702448",
+      "sync_status": "synced",
+      "last_synced_at": "2026-09-10T14:30:00.000000Z"
+    },
+    "stripe": {
+      "connected": true,
+      "details_submitted": true,
+      "charges_enabled": true,
+      "payouts_enabled": true,
+      "account_id": "acct_1UEaV9GfVjnx0zvm",
+      "bank_name": "JPMorgan Chase Bank",
+      "bank_last4": "6789"
+    },
+    "summary": {
+      "quickbooks_connected": true,
+      "stripe_connected": true,
+      "payouts_enabled": true,
+      "payouts_ready": true,
+      "all_connected": true
+    }
+  }
+}
+```
+
+#### Field Reference:
+
+| Field Path | Type | Description |
+|---|---|---|
+| `data.quickbooks.is_connected` | `boolean` | `true` if active OAuth tokens exist and connection is valid. |
+| `data.quickbooks.realm_id` | `string \| null` | QuickBooks Company / Realm ID. |
+| `data.quickbooks.sync_status` | `string` | `'connected'`, `'synced'`, `'syncing'`, `'error'`, or `'not_connected'`. |
+| `data.quickbooks.last_synced_at` | `string \| null` | ISO8601 timestamp of the last successful invoice/customer sync. |
+| `data.stripe.connected` | `boolean` | `true` if tenant has submitted bank/payout onboarding details to Stripe. |
+| `data.stripe.details_submitted` | `boolean` | `true` if tenant completed the Stripe Connect onboarding form. |
+| `data.stripe.charges_enabled` | `boolean` | `true` if Stripe account can accept customer card payments. |
+| `data.stripe.payouts_enabled` | `boolean` | `true` if payouts to the tenant's external bank account are active. |
+| `data.stripe.account_id` | `string \| null` | Connected Stripe Express Account ID (`acct_...`). |
+| `data.stripe.bank_name` | `string \| null` | Name of the verified payout bank or card brand. |
+| `data.stripe.bank_last4` | `string \| null` | Last 4 digits of the attached external bank account. |
+| `data.summary.quickbooks_connected` | `boolean` | Convenient boolean flag for QuickBooks readiness. |
+| `data.summary.stripe_connected` | `boolean` | Convenient boolean flag for Stripe Connect bank readiness. |
+| `data.summary.payouts_ready` | `boolean` | `true` when tenant can receive instant customer payouts into their bank. |
+| `data.summary.all_connected` | `boolean` | `true` when BOTH QuickBooks and Stripe Connect are active and configured. |
+
+> [!NOTE]
+> **Component-Level Status Endpoints**:
+> If a specific frontend component or modal only requires QuickBooks status, `GET /api/duewise/quickbooks/status` remains fully supported. Similarly, for Stripe-only views, `GET /api/billing/connect/status` remains available. Use `GET /api/accounts/status` whenever you need an overview of all third-party integrations.
+
+---
+
+### 6.7 Monthly Recovery Fee Engine (Base 15% vs Big Books 10%)
+
+Platform charges a success fee only on **overdue amounts successfully recovered** each month. The fee is charged as a single monthly batch (never per invoice) to the tenant's payment card on file via Stripe.
 
 - **Duewise Base Plan**: **15%** recovery fee.
 - **Duewise Big Books Plan**: **10%** recovery fee.
+- **Billing Currency**: Denominated in **USD**. If tenant invoices are issued and paid in other currencies (e.g. `PKR`, `EUR`, `GBP`), the system automatically converts them to USD at real-time cached exchange rates before calculating the 15%/10% fee.
+
+> [!IMPORTANT]
+> **System-Recovered Invoices Qualification Rule (QuickBooks Exclusion)**:
+> Invoices only qualify for the recovery fee if **Duewise actively participated in the collection**:
+> 1. Invoices imported from QuickBooks that were **already paid prior to sync** are strictly excluded (`is_overdue_recovered = false`).
+> 2. For QuickBooks open invoices that later get paid, they qualify ONLY if Duewise actively followed up with reminders (Email/SMS/WhatsApp/Smart Channel with logged communications) or payment was collected via Duewise's Stripe Checkout link.
+> 3. Invoices created natively inside Duewise that are settled past their due date automatically qualify.
+>
+> **Automated Month-End Cron Execution & Double-Billing Protection**:
+> The scheduled cron job runs automatically on the **last day of every month at 23:55** (`duewise:process-monthly-recovery-fees`), aggregating all unbilled system-recovered overdue invoices and charging the fee via Stripe with full idempotency.
+> Once billed, an invoice is stamped with `recovery_batch_id = <batch_id>`. This removes it from the unbilled `/current-cycle` queue permanently so it is **never billed twice**.
+
+---
+
+#### 6.7.1 Frontend Tab UI / Screen Specification ("Recovery Fees")
+
+Frontend developers can build a dedicated **"Recovery Fees"** tab inside the Duewise or Billing navigation area.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  RECOVERY FEES                                                                         │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  [Top Section: Current Billing Cycle (Live Accruing Meter)]                            │
+│  ┌──────────────────────────┬──────────────────────────┬─────────────────────────────┐ │
+│  │ Current Plan             │ Overdue Recovered (Cycle)│ Est. Fee Accrued (To Bill)  │ │
+│  │ Base (15% Rate)          │ $7.97 USD                │ $1.20 USD                   │ │
+│  │ Period: Sept 01 - Sept 30│ (from 2,210 PKR)         │ Due at Month-End            │ │
+│  └──────────────────────────┴──────────────────────────┴─────────────────────────────┘ │
+│                                                                                        │
+│  Pending Qualifying Invoices In This Cycle:                                            │
+│  ┌───────────────┬──────────────────────┬──────────────┬───────────────┬────────────┐  │
+│  │ Invoice #     │ Client               │ Original Amt │ Converted USD │ Recovered  │  │
+│  ├───────────────┼──────────────────────┼──────────────┼───────────────┼────────────┤  │
+│  │ INV-2026-013  │ TechCorp Pakistan    │ 2,210 PKR    │ $7.97 USD     │ Sept 22    │  │
+│  └───────────────┴──────────────────────┴──────────────┴───────────────┴────────────┘  │
+│  * Note: When invoices_count == 0, shows clean empty state:                            │
+│    "All recovered invoices for this cycle have been billed, or no new overdue          │
+│     invoices recovered yet."                                                           │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  [Bottom Section: Monthly Billing Batches History]                                     │
+│  ┌────────┬──────────────────────┬─────────────┬──────────────┬──────────┬───────────┐ │
+│  │ Batch  │ Period               │ Recovered   │ Fee Charged  │ Status   │ Action    │ │
+│  ├────────┼──────────────────────┼─────────────┼──────────────┼──────────┼───────────┤ │
+│  │ #2     │ Sept 01 - Sept 30    │ $7.97 USD   │ $1.20 USD    │ [Charged]│ [View]    │ │
+│  │ #1     │ Aug 01 - Aug 31      │ $50.00 USD  │ $7.50 USD    │ [Failed] │ [Retry]   │ │
+│  └────────┴──────────────────────┴─────────────┴──────────────┴──────────┴───────────┘ │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+##### UI State Logic & Rules:
+1. **Top Section (Current Cycle):**
+   - Calls `GET /api/duewise/recovery-fee/current-cycle` on load.
+   - If `data.invoices_count > 0`: Display the metric cards and the qualifying invoices table showing original currency & USD converted value.
+   - If `data.invoices_count === 0`: Display a subtle info card stating that no unbilled overdue recoveries are pending for this cycle.
+2. **Bottom Section (Batches History):**
+   - Calls `GET /api/duewise/recovery-fee/batches?page=1&per_page=15`.
+   - **Status Badges**:
+     - `charged` -> Green badge (`bg-green-100 text-green-800`).
+     - `failed` -> Red badge (`bg-red-100 text-red-800`).
+   - **Retry Button**:
+     - Display a prominent **"Retry Payment"** button ONLY when `batch.can_retry === true` (`status === 'failed'`).
+     - Clicking triggers `POST /api/duewise/recovery-fee/batches/{id}/retry`.
+     - Disable button and show a spinner while retrying.
+     - On success (`200 OK`): Show toast *"Payment retried successfully"* and re-fetch batches.
+     - On failure (`422 Unprocessable Entity`): Show toast error (e.g. *"Card declined"*).
+   - **Batch Details Modal (Optional):**
+     - Clicking `[View Details]` opens a dialog displaying `batch.metadata.invoices_breakdown` (listing all invoices that made up the batch, original currencies, and exchange rates).
+
+---
+
+#### 6.5.2 Endpoint Reference
 
 #### `GET /api/duewise/recovery-fee/current-cycle`
-Inspects live unbilled overdue recoveries in the current calendar month.
+Inspects live unbilled overdue recoveries in the current calendar month that are queued to be billed at month-end.
 
 - **Auth Required**: Yes (`Bearer <permanent_token>`)
 - **Product Access Required**: `duewise`
-- **Response: `200 OK`**:
+- **Response: `200 OK` (With Pending Unbilled Invoices)**:
 ```json
 {
   "data": {
@@ -1251,29 +2188,40 @@ Inspects live unbilled overdue recoveries in the current calendar month.
     "fee_percentage": 15.0,
     "period_start": "2026-09-01",
     "period_end": "2026-09-30",
-    "total_overdue_recovered": 10000.0,
-    "accrued_recovery_fee": 1500.0,
-    "invoices_count": 2,
+    "total_overdue_recovered": 7.97,
+    "accrued_recovery_fee": 1.20,
+    "currency": "usd",
+    "invoices_count": 1,
     "qualifying_invoices": [
       {
-        "id": 101,
-        "number": "INV-2026-001",
+        "id": 43,
+        "number": "INV-2026-013",
         "client_name": "Apex Global Logistics",
-        "amount_recovered": 6000.0,
-        "recovered_at": "2026-09-05T14:30:00.000000Z",
-        "due_date": "2026-08-15",
-        "paid_at": "2026-09-05T14:30:00.000000Z"
-      },
-      {
-        "id": 104,
-        "number": "INV-2026-004",
-        "client_name": "Metro Transit Partners",
-        "amount_recovered": 4000.0,
-        "recovered_at": "2026-09-08T09:12:00.000000Z",
-        "due_date": "2026-08-20",
-        "paid_at": "2026-09-08T09:12:00.000000Z"
+        "currency": "pkr",
+        "amount_recovered": 2210.0,
+        "amount_recovered_usd": 7.97,
+        "recovered_at": "2026-09-22T00:00:00.000000Z",
+        "due_date": "2026-09-20",
+        "paid_at": "2026-09-22T00:00:00.000000Z"
       }
     ]
+  }
+}
+```
+
+- **Response: `200 OK` (When All Recoveries are Billed / Clean State)**:
+```json
+{
+  "data": {
+    "current_plan": "base",
+    "fee_percentage": 15.0,
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "total_overdue_recovered": 0,
+    "accrued_recovery_fee": 0,
+    "currency": "usd",
+    "invoices_count": 0,
+    "qualifying_invoices": []
   }
 }
 ```
@@ -1281,34 +2229,156 @@ Inspects live unbilled overdue recoveries in the current calendar month.
 ---
 
 #### `GET /api/duewise/recovery-fee/batches`
-Returns historical recovery billing batches charged to the tenant's default card via Stripe.
+Returns historical recovery billing batches charged to the tenant's default card via Stripe with pagination support.
 
 - **Auth Required**: Yes (`Bearer <permanent_token>`)
 - **Product Access Required**: `duewise`
+- **Query Parameters**:
+  - `page` (Optional, integer, default: `1`): Current page number.
+  - `per_page` (Optional, integer, default: `15`, max: `100`): Number of records per page.
 - **Response: `200 OK`**:
 ```json
 {
+  "current_page": 1,
   "data": [
     {
+      "id": 2,
+      "tenant_id": "tenant-iyk9oxfa",
+      "period_start": "2026-09-01T00:00:00.000000Z",
+      "period_end": "2026-09-30T00:00:00.000000Z",
+      "plan_key": "base",
+      "total_recovered_amount": "7.97",
+      "fee_percentage": "15.00",
+      "fee_amount": "1.20",
+      "currency": "usd",
+      "performance_fee_id": 2,
+      "status": "charged",
+      "charged_at": "2026-09-22T18:48:14.000000Z",
+      "can_retry": false,
+      "metadata": {
+        "invoice_count": 1,
+        "invoice_ids": [43],
+        "invoices_breakdown": [
+          {
+            "id": 43,
+            "number": "INV-2026-013",
+            "currency": "pkr",
+            "amount_recovered": 2210.0,
+            "amount_recovered_usd": 7.97
+          }
+        ],
+        "currency_conversion": {
+          "target_currency": "usd",
+          "rates": {
+            "USD": 1.0,
+            "PKR": 277.425913,
+            "EUR": 0.87176,
+            "GBP": 0.747749
+          }
+        }
+      },
+      "created_at": "2026-09-22T18:48:14.000000Z",
+      "updated_at": "2026-09-22T18:48:14.000000Z"
+    },
+    {
       "id": 1,
-      "batch_number": "RF-2026-08-tenant-abc12345",
-      "period_start": "2026-08-01",
-      "period_end": "2026-08-31",
-      "total_recovered_amount": 12000.0,
-      "fee_percentage": 15.0,
-      "fee_amount": 1800.0,
-      "invoices_count": 3,
-      "stripe_payment_intent_id": "pi_123456789",
-      "status": "succeeded",
-      "billed_at": "2026-09-01T00:05:00.000000Z"
+      "tenant_id": "tenant-iyk9oxfa",
+      "period_start": "2026-08-01T00:00:00.000000Z",
+      "period_end": "2026-08-31T00:00:00.000000Z",
+      "plan_key": "base",
+      "total_recovered_amount": "50.00",
+      "fee_percentage": "15.00",
+      "fee_amount": "7.50",
+      "currency": "usd",
+      "performance_fee_id": null,
+      "status": "failed",
+      "charged_at": null,
+      "can_retry": true,
+      "metadata": {
+        "invoice_count": 1,
+        "invoice_ids": [28]
+      },
+      "created_at": "2026-09-01T00:05:00.000000Z",
+      "updated_at": "2026-09-01T00:05:00.000000Z"
     }
-  ]
+  ],
+  "first_page_url": "http://localhost:8000/api/duewise/recovery-fee/batches?page=1",
+  "from": 1,
+  "last_page": 1,
+  "last_page_url": "http://localhost:8000/api/duewise/recovery-fee/batches?page=1",
+  "next_page_url": null,
+  "path": "http://localhost:8000/api/duewise/recovery-fee/batches",
+  "per_page": 15,
+  "prev_page_url": null,
+  "to": 2,
+  "total": 2
 }
 ```
 
 ---
 
-### 6.5 Public Communication Tracking (No Auth)
+#### `POST /api/duewise/recovery-fee/batches/{id}/retry`
+Manually re-attempts charging a failed monthly performance recovery fee batch to the tenant's card on file.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Product Access Required**: `duewise`
+- **URL Parameters**:
+  - `id` (Required, integer): The ID of the failed recovery batch.
+- **Validation / Preconditions**:
+  - The batch must belong to the authenticated tenant.
+  - The batch must have `status === 'failed'`.
+- **Response: `200 OK` (Payment Retried Successfully)**:
+```json
+{
+  "message": "Recovery fee payment retried successfully.",
+  "data": {
+    "id": 1,
+    "tenant_id": "tenant-iyk9oxfa",
+    "period_start": "2026-08-01T00:00:00.000000Z",
+    "period_end": "2026-08-31T00:00:00.000000Z",
+    "plan_key": "base",
+    "total_recovered_amount": "50.00",
+    "fee_percentage": "15.00",
+    "fee_amount": "7.50",
+    "currency": "usd",
+    "performance_fee_id": 18,
+    "status": "charged",
+    "charged_at": "2026-09-23T00:15:00.000000Z",
+    "can_retry": false,
+    "metadata": {
+      "invoice_count": 1,
+      "invoice_ids": [28],
+      "retried_at": "2026-09-23T00:15:00.000000Z",
+      "retried_successfully": true
+    }
+  }
+}
+```
+- **Response: `422 Unprocessable Entity` (Card Declined / Payment Failed)**:
+```json
+{
+  "message": "Payment retry failed: Your card was declined.",
+  "error": "PAYMENT_FAILED"
+}
+```
+- **Response: `422 Unprocessable Entity` (Invalid Batch Status)**:
+```json
+{
+  "message": "Only failed batches can be retried. Current status is [charged].",
+  "error": "INVALID_STATUS"
+}
+```
+- **Response: `404 Not Found`**:
+```json
+{
+  "message": "Recovery fee batch [999] not found.",
+  "error": "NOT_FOUND"
+}
+```
+
+---
+
+### 6.8 Public Communication Tracking (No Auth)
 
 #### `GET /api/duewise/track/open/{token}`
 Tracking pixel embedded in reminder HTML emails (`<img src="/api/duewise/track/open/{token}" width="1" height="1" />`).
@@ -1320,6 +2390,37 @@ Click tracking redirect inserted into SMS/WhatsApp and email links.
 - **Auth Required**: None (Public).
 - **Query Parameter**: `url` (URL-encoded destination link).
 - **Behavior**: Records the `clicked_at` timestamp on the communication log and responds with an HTTP `302 Found` redirect to the destination `url`.
+
+---
+
+### 6.9 Public Invoice Payment Portal & Stripe Checkout (No Auth / Client Facing)
+
+#### `GET /pay/{id}`
+Public checkout summary page rendered for the client after clicking the "Pay Invoice" button in email/SMS/WhatsApp.
+- **Auth Required**: None (Public).
+- **Behavior**:
+  - If the invoice is already settled, renders an **Invoice Already Paid** receipt.
+  - If unpaid, displays invoice metadata, line items table, balance due, and a **"Pay with Card / Stripe"** action button.
+
+#### `POST /pay/{id}/checkout`
+Initiates a secure Stripe Checkout Session.
+- **Auth Required**: None (Public).
+- **Behavior**:
+  - Automatically creates a Stripe Checkout Session for the invoice's `balance_due`.
+  - Attaches metadata: `type: "duewise_invoice_payment"`, `invoice_id`, `tenant_id`.
+  - Payout destination: If the tenant has a connected Stripe account (`stripe_connect_id`), Stripe routes the funds directly to the tenant's connected bank account via `transfer_data.destination`.
+  - Issues an HTTP 302 redirect to the Stripe-hosted checkout page.
+
+#### `GET /pay/{id}/success`
+Confirmation receipt page displayed to the client upon successful completion of payment on Stripe.
+- **Auth Required**: None (Public).
+
+#### Stripe Webhook Signal (`checkout.session.completed`)
+When Stripe processes the payment successfully, Stripe sends a webhook to `POST /api/stripe/webhook`:
+1. System identifies the payment via `metadata.type === 'duewise_invoice_payment'`.
+2. Marks the invoice `status = 'paid'`, `amount_paid = total`, and `balance_due = 0`.
+3. If the invoice was overdue past its due date, automatically sets `is_overdue_recovered = true` and `recovered_at = now()`.
+4. The existing `duewise:process-monthly-recovery-fees` engine includes this recovered invoice in the month-end performance fee batch (15% Base / 10% Big Books).
 
 ---
 
@@ -1704,6 +2805,63 @@ Calculates and charges a performance fee for recovered invoice funds via Stripe 
 
 ---
 
+### `POST /api/billing/connect/onboard`
+Generates a Stripe Connect Express onboarding URL for the tenant to connect their bank account/routing details so client invoice payments transfer directly to them.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+- **Request Body**:
+```json
+{
+  "return_url": "http://localhost:5173/app/settings/payouts?status=success",
+  "refresh_url": "http://localhost:5173/app/settings/payouts?status=refresh"
+}
+```
+
+#### Response: `200 OK`
+```json
+{
+  "url": "https://connect.stripe.com/setup/s/acct_123456789/AbCdEfGhIjKl",
+  "account_id": "acct_123456789",
+  "message": "Stripe Connect onboarding link generated successfully."
+}
+```
+
+---
+
+### `GET /api/billing/connect/status`
+Retrieves the tenant's current Stripe Connect bank account attachment status.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+
+#### Response: `200 OK`
+```json
+{
+  "connected": true,
+  "details_submitted": true,
+  "charges_enabled": true,
+  "payouts_enabled": true,
+  "account_id": "acct_123456789",
+  "bank_name": "JPMorgan Chase Bank",
+  "bank_last4": "6789"
+}
+```
+
+---
+
+### `GET /api/billing/connect/login-link`
+Generates a single-use login link to the tenant's Stripe Express Payout Dashboard.
+
+- **Auth Required**: Yes (`Bearer <permanent_token>`)
+
+#### Response: `200 OK`
+```json
+{
+  "url": "https://connect.stripe.com/express/acct_123456789/..."
+}
+```
+
+---
+
 ### Product & Plan Catalog
 
 Use these exact slugs when calling `/api/billing/subscribe`:
@@ -1778,6 +2936,7 @@ export interface Tenant {
   timezone: string | null;
   website: string | null;
   tax_id: string | null;
+  business_tone?: 'polite' | 'professional' | 'firm';
   trial_ends_at: string | null;
   on_trial: boolean;
 }
@@ -1832,6 +2991,9 @@ export interface Client {
   preferred_channel: 'email' | 'sms' | 'whatsapp' | 'call' | null;
   ai_recommended_channel: string | null;
   effective_channel: string | null;
+  do_not_contact: boolean;
+  reminder_tone?: 'polite' | 'professional' | 'firm' | null;
+  resolved_tone: 'polite' | 'professional' | 'firm';
   ai_late_risk_score: number;
   risk_tier: 'low' | 'medium' | 'high' | null;
   average_days_to_pay: number;
@@ -1874,14 +3036,105 @@ export interface Invoice {
   paid_at: string | null;
   is_overdue_recovered: boolean;
   recovered_at: string | null;
+  do_not_contact: boolean;
   quickbooks_id: string | null;
   ai_predicted_late_probability: number | null;
   ai_predicted_payment_date: string | null;
+  ai_prediction?: InvoiceAiPrediction | null;
   client?: Client;
   line_items?: InvoiceLineItem[];
   metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface InvoiceAiPrediction {
+  probability: number;
+  risk_tier: 'low' | 'medium' | 'high' | 'settled';
+  risk_label: string;
+  risk_color: string;
+  badge_text: string;
+  predicted_payment_date: string | null;
+  predicted_payment_date_formatted: string | null;
+  estimated_delay_days: number;
+  confidence_score: number;
+  confidence_label: string;
+  risk_factors: string[];
+  summary_hover_text: string;
+  recommended_action: {
+    channel: 'email' | 'sms' | 'whatsapp';
+    channel_label: string;
+    tone: 'polite' | 'professional' | 'firm';
+    action_text: string;
+    is_trial_restricted: boolean;
+    suggested_premium_channel: string | null;
+    api_endpoint: string;
+    method: 'POST';
+    payload: {
+      channel: string;
+      tone: string;
+    };
+  } | null;
+}
+
+export interface DuewiseModeResponse {
+  duewise_mode: 'approval' | 'autopilot';
+  business_tone: 'polite' | 'professional' | 'firm';
+  default_tone: 'polite' | 'professional' | 'firm';
+  is_approval_mode: boolean;
+  is_autopilot: boolean;
+  approval_started_at: string;
+  days_remaining: number;
+  pending_approvals_count: number;
+}
+
+export interface OutboundApprovalItem {
+  id: number;
+  channel: 'email' | 'sms' | 'whatsapp';
+  recipient: string;
+  subject: string | null;
+  body: string;
+  status: 'pending_approval' | 'delivered' | 'rejected';
+  queued_at: string;
+  stage: string | null;
+  is_automated: boolean;
+  is_intent_nudge: boolean;
+  is_fallback: boolean;
+  invoice: {
+    id: number;
+    number: string;
+    total_amount: number;
+    balance_due: number;
+    currency: string;
+    due_date: string | null;
+    days_overdue: number;
+    status: string;
+  } | null;
+  client: {
+    id: number;
+    name: string;
+    company_name: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp_phone: string | null;
+  } | null;
+}
+
+export interface TonePreviewRequest {
+  invoice_id: number;
+  channel?: 'email' | 'sms' | 'whatsapp';
+  tone?: 'polite' | 'professional' | 'firm';
+  stage?: string;
+}
+
+export interface TonePreviewResponse {
+  invoice_id: number;
+  channel: 'email' | 'sms' | 'whatsapp';
+  tone: 'polite' | 'professional' | 'firm';
+  stage: string | null;
+  subject: string | null;
+  message: string;
+  source: 'ai' | 'template';
 }
 
 export interface InvoiceDashboardSummary {
@@ -1914,6 +3167,83 @@ export interface InvoiceDashboardSummary {
     overdue_amount: number;
     max_days_overdue: number;
   }>;
+  ai_briefing?: DueWiseAiBriefingData | null;
+}
+
+export interface DueWiseAiBriefingResponse {
+  data: DueWiseAiBriefingData;
+}
+
+export interface DueWiseAiBriefingData {
+  generated_at: string;
+  cached: boolean;
+  cooldown_active: boolean;
+  portfolio_health: DueWisePortfolioHealth;
+  briefing: DueWiseBriefingContent;
+  metrics: DueWiseBriefingMetrics;
+  insights: DueWiseAiInsight[];
+  recommended_actions: DueWiseBriefingAction[];
+}
+
+export interface DueWisePortfolioHealth {
+  score: number;
+  tier: 'optimal' | 'stable' | 'attention_required' | 'critical';
+  label: string;
+  status_color: string;
+  summary_metric: string;
+}
+
+export interface DueWiseBriefingContent {
+  headline: string;
+  executive_summary: string;
+  tone: 'urgent' | 'caution' | 'positive' | 'neutral';
+  engine: 'gemini-ai' | 'deterministic-fallback';
+}
+
+export interface DueWiseBriefingMetrics {
+  currency: string;
+  total_outstanding: number;
+  total_overdue: number;
+  overdue_count: number;
+  high_risk_clients_count: number;
+  projected_7d_recovery: number;
+  projected_30d_recovery: number;
+  pending_approvals_count: number;
+  duewise_mode: 'approval' | 'autopilot';
+  is_autopilot: boolean;
+}
+
+export interface DueWiseAiInsight {
+  id: string;
+  category: 'risk_alert' | 'cash_flow' | 'channel_optimization' | 'system';
+  title: string;
+  description: string;
+  urgency: 'high' | 'medium' | 'low' | 'info';
+  metric_label: string;
+  metric_value: string;
+  client_id?: number;
+  client_name?: string;
+  invoice_id?: number;
+  invoice_number?: string;
+}
+
+export interface DueWiseBriefingAction {
+  id: string;
+  type: 'quick_remind' | 'review_approvals' | 'configure_mode';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  badge: string;
+  button_text: string;
+  api_endpoint: string;
+  method: 'POST';
+  payload: Record<string, unknown> | Array<unknown>;
+  invoice_id?: number;
+  invoice_number?: string;
+  client_name?: string;
+  amount?: number;
+  currency?: string;
+  target_url?: string;
 }
 
 export interface CashFlowForecast {
@@ -2136,11 +3466,165 @@ export interface SetupIntentResponse {
   client_secret: string;
 }
 
+export interface QuickBooksStatusData {
+  is_connected: boolean;
+  realm_id: string | null;
+  sync_status: 'connected' | 'synced' | 'syncing' | 'error' | 'not_connected' | string;
+  last_synced_at: string | null;
+}
+
+export interface StripeConnectStatusData {
+  connected: boolean;
+  details_submitted: boolean;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  account_id: string | null;
+  bank_name: string | null;
+  bank_last4: string | null;
+}
+
+export interface AccountStatusSummary {
+  quickbooks_connected: boolean;
+  stripe_connected: boolean;
+  payouts_enabled: boolean;
+  payouts_ready: boolean;
+  all_connected: boolean;
+}
+
+export interface UnifiedAccountStatusResponse {
+  data: {
+    quickbooks: QuickBooksStatusData;
+    stripe: StripeConnectStatusData;
+    summary: AccountStatusSummary;
+  };
+}
+
+export interface StripeConnectOnboardRequest {
+  return_url?: string;
+  refresh_url?: string;
+}
+
+export interface StripeConnectOnboardResponse {
+  url: string;
+  account_id: string;
+  message: string;
+}
+
+export interface StripeConnectLoginLinkResponse {
+  url: string;
+}
+
+export interface DuewiseUpgradePrompt {
+  required: boolean;
+  target_plan: 'base' | 'big_books' | null;
+  message: string | null;
+}
+
+export interface DuewisePlanLimits {
+  plan: 'trial' | 'base' | 'big_books' | 'none' | string;
+  plan_name: string;
+  is_trial: boolean;
+  can_create_invoice: boolean;
+  invoice_count: number;
+  invoice_limit: number | null;
+  invoices_remaining: number | null;
+  can_use_email: boolean;
+  can_use_sms: boolean;
+  can_use_whatsapp: boolean;
+  can_use_smart_channel: boolean;
+  allowed_channels: string[];
+  cycle_start: string;
+  cycle_end: string;
+  upgrade_prompt: DuewiseUpgradePrompt;
+}
+
+export interface QualifyingInvoiceItem {
+  id: number;
+  number: string;
+  client_name: string;
+  currency: string;
+  amount_recovered: number;
+  amount_recovered_usd: number;
+  recovered_at: string | null;
+  due_date: string | null;
+  paid_at: string | null;
+}
+
+export interface CurrentCycleSummaryData {
+  current_plan: 'base' | 'big_books' | string;
+  fee_percentage: number;
+  period_start: string;
+  period_end: string;
+  total_overdue_recovered: number;
+  accrued_recovery_fee: number;
+  currency: string;
+  invoices_count: number;
+  qualifying_invoices: QualifyingInvoiceItem[];
+}
+
+export interface CurrentCycleSummaryResponse {
+  data: CurrentCycleSummaryData;
+}
+
+export interface MonthlyRecoveryBatchBreakdownItem {
+  id: number;
+  number: string;
+  currency: string;
+  amount_recovered: number;
+  amount_recovered_usd: number;
+}
+
+export interface MonthlyRecoveryBatchMetadata {
+  invoice_count: number;
+  invoice_ids: number[];
+  invoices_breakdown?: MonthlyRecoveryBatchBreakdownItem[];
+  currency_conversion?: {
+    target_currency: string;
+    rates: Record<string, number>;
+  };
+  retried_at?: string;
+  retried_successfully?: boolean;
+  last_retry_error?: string;
+  last_retried_at?: string;
+}
+
+export interface MonthlyRecoveryBatch {
+  id: number;
+  tenant_id: string;
+  period_start: string;
+  period_end: string;
+  plan_key: string;
+  total_recovered_amount: string | number;
+  fee_percentage: string | number;
+  fee_amount: string | number;
+  currency: string;
+  performance_fee_id: number | null;
+  status: 'charged' | 'failed';
+  charged_at: string | null;
+  can_retry: boolean;
+  metadata: MonthlyRecoveryBatchMetadata | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PaginatedRecoveryBatches = PaginatedResponse<MonthlyRecoveryBatch>;
+
+export interface RetryRecoveryBatchResponse {
+  message: string;
+  data: MonthlyRecoveryBatch;
+}
+
 export interface ApiErrorResponse {
   message: string;
   error?: string;
   errors?: Record<string, string[]>;
   retry_after_seconds?: number;
+  current_count?: number;
+  limit?: number;
+  plan?: string;
+  upgrade_url?: string;
+  requested_channel?: string;
+  allowed_channels?: string[];
 }
 ```
 

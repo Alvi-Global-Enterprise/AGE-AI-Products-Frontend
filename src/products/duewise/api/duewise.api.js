@@ -122,6 +122,86 @@ function buildMockForecast() {
   }
 }
 
+export function normalizeInvoiceAIPrediction(invoice) {
+  if (!invoice) return null
+  if (invoice.ai_prediction && typeof invoice.ai_prediction === 'object' && invoice.ai_prediction.risk_tier) {
+    return invoice.ai_prediction
+  }
+
+  const isPaid = String(invoice.status || '').toLowerCase() === 'paid'
+  const rawProb = invoice.ai_predicted_late_probability ?? (invoice.days_overdue > 15 ? 78 : invoice.days_overdue > 0 ? 55 : 18.5)
+  const lateProb = Number(rawProb) || 0
+  const isHigh = lateProb >= 70
+  const isMedium = lateProb >= 40 && lateProb < 70
+  const riskTier = isPaid ? 'settled' : isHigh ? 'high' : isMedium ? 'medium' : 'low'
+  const riskColor = isPaid ? '#64748b' : isHigh ? '#e11d48' : isMedium ? '#f59e0b' : '#10b981'
+  const badgeText = isPaid
+    ? 'Settled'
+    : isHigh
+      ? `Critical Delay (${lateProb}%)`
+      : isMedium
+        ? `Elevated Risk (${lateProb}%)`
+        : `On-Schedule (${lateProb}%)`
+
+  const predictedDate = invoice.ai_predicted_payment_date || invoice.due_date || new Date().toISOString().slice(0, 10)
+  const confidenceScore = isHigh ? 92.4 : isMedium ? 88.0 : 95.0
+
+  return {
+    probability: lateProb,
+    risk_tier: riskTier,
+    risk_label: isPaid
+      ? 'Settled'
+      : isHigh
+        ? 'Critical Delinquency Risk'
+        : isMedium
+          ? 'Elevated Delinquency Risk'
+          : 'Low Delinquency Risk',
+    risk_color: riskColor,
+    badge_text: badgeText,
+    predicted_payment_date: predictedDate,
+    predicted_payment_date_formatted: predictedDate,
+    estimated_delay_days: invoice.days_overdue || (isHigh ? 18 : 0),
+    confidence_score: confidenceScore,
+    confidence_label: `${confidenceScore}% Confidence`,
+    risk_factors: isHigh
+      ? [
+          'Client historically delayed on 45% of previous invoices.',
+          'Invoice is 20+ days past contractual grace period.',
+          'Previous payment promise breached 3 days ago.',
+        ]
+      : isMedium
+        ? [
+            'Payment velocity slowed down in the last 60 days.',
+            'Client opened reminder email but did not initiate settlement.',
+          ]
+        : [
+            'Client maintains a 100% on-time payment track record.',
+            'No dispute or communication friction recorded.',
+          ],
+    summary_hover_text: `Predicted settlement: ${predictedDate} (${confidenceScore}% Confidence). ${
+      isHigh
+        ? 'Client exhibits high delinquency risk requiring immediate escalation.'
+        : isMedium
+          ? 'Account requires gentle reminder nudging.'
+          : 'Account is running smoothly on-schedule.'
+    }`,
+    recommended_action: {
+      channel: isHigh ? 'whatsapp' : 'email',
+      channel_label: isHigh ? 'WhatsApp' : 'Email',
+      tone: isHigh ? 'firm' : 'polite',
+      action_text: isHigh ? 'Send AI WhatsApp Escalation' : 'Send AI Email Reminder',
+      is_trial_restricted: false,
+      suggested_premium_channel: isHigh ? 'whatsapp' : null,
+      api_endpoint: `/api/duewise/invoices/${invoice.id}/remind`,
+      method: 'POST',
+      payload: {
+        channel: isHigh ? 'whatsapp' : 'email',
+        tone: isHigh ? 'firm' : 'polite',
+      },
+    },
+  }
+}
+
 const MOCK_INVOICES = [
   {
     id: 101,
@@ -136,7 +216,7 @@ const MOCK_INVOICES = [
     total: 5000,
     amount_paid: 0,
     balance_due: 5000,
-    status: 'open',
+    status: 'sent',
     days_overdue: 0,
     aging_bucket: 'current',
     paid_at: null,
@@ -173,7 +253,7 @@ const MOCK_INVOICES = [
     ai_predicted_payment_date: '2026-09-20',
     created_at: '2026-08-01T10:00:00.000000Z',
     updated_at: '2026-08-01T10:00:00.000000Z',
-    client: { id: 1, name: 'Acme Corp Ltd', email: 'billing@acmecorp.com', phone: '+15552345678' },
+    client: { id: 1, name: 'Beta Corp', email: 'billing@betacorp.com', phone: '+15559871122' },
   },
   {
     id: 103,
@@ -201,9 +281,38 @@ const MOCK_INVOICES = [
     updated_at: '2026-07-12T10:00:00.000000Z',
     client: { id: 1, name: 'Acme Corp Ltd', email: 'billing@acmecorp.com', phone: '+15552345678' },
   },
+  {
+    id: 104,
+    tenant_id: 'tenant-demo',
+    client_id: 15,
+    number: 'INV-CRITICAL-01',
+    currency: 'usd',
+    issue_date: '2026-08-10',
+    due_date: '2026-09-02',
+    subtotal: 8500,
+    tax_total: 0,
+    total: 8500,
+    amount_paid: 0,
+    balance_due: 8500,
+    status: 'overdue',
+    days_overdue: 22,
+    aging_bucket: '1-30',
+    paid_at: null,
+    is_overdue_recovered: false,
+    recovered_at: null,
+    quickbooks_id: null,
+    ai_predicted_late_probability: 88.5,
+    ai_predicted_payment_date: '2026-10-05',
+    created_at: '2026-08-10T10:00:00.000000Z',
+    updated_at: '2026-08-10T10:00:00.000000Z',
+    client: { id: 15, name: 'Apex Logistics', email: 'billing@apexlogistics.com', phone: '+15559876543' },
+  },
 ]
 
-let mockInvoices = [...MOCK_INVOICES]
+let mockInvoices = MOCK_INVOICES.map((inv) => ({
+  ...inv,
+  ai_prediction: normalizeInvoiceAIPrediction(inv),
+}))
 
 function paginate(items, params = {}) {
   const page = Math.max(1, Number(params.page) || 1)
@@ -211,7 +320,10 @@ function paginate(items, params = {}) {
   const total = items.length
   const lastPage = Math.max(1, Math.ceil(total / perPage))
   const start = (page - 1) * perPage
-  const slice = items.slice(start, start + perPage)
+  const slice = items.slice(start, start + perPage).map((i) => ({
+    ...i,
+    ai_prediction: normalizeInvoiceAIPrediction(i),
+  }))
   return {
     data: slice,
     links: {
@@ -263,7 +375,185 @@ function buildMockEntitlements() {
   }
 }
 
+let mockBriefingLastRefreshed = 0
+
+function buildMockAIBriefing(refresh = false) {
+  const now = Date.now()
+  const cooldownPeriodMs = 5 * 60 * 1000
+  const isCooldown = Boolean(mockBriefingLastRefreshed && now - mockBriefingLastRefreshed < cooldownPeriodMs)
+
+  if (refresh && !isCooldown) {
+    mockBriefingLastRefreshed = now
+  }
+
+  return {
+    generated_at: new Date().toISOString(),
+    cached: !refresh,
+    cooldown_active: isCooldown,
+    portfolio_health: {
+      score: 85,
+      tier: 'optimal',
+      label: 'Optimal Cash Flow',
+      status_color: '#059669',
+      summary_metric: '92% on-schedule',
+    },
+    briefing: {
+      headline: '🔮 DueWise AI Daily Briefing: 3 Overdue Invoices (1 Critical Exposure)',
+      executive_summary:
+        'DueWise detected payment risk across 3 open invoices today. 1 invoice requires immediate attention (Apex Logistics, 22 days late) for which an escalated WhatsApp sequence is recommended. The remaining 2 invoices exhibit low delinquency risk and can be handled via routine courtesy follow-up. Approximately USD 45,000.00 is projected for recovery over the next 7 days (89% confidence).',
+      tone: 'urgent',
+      engine: 'gemini-ai',
+    },
+    metrics: {
+      currency: 'USD',
+      total_outstanding: 18500.0,
+      total_overdue: 12000.0,
+      overdue_count: 3,
+      high_risk_clients_count: 1,
+      projected_7d_recovery: 45000.0,
+      projected_30d_recovery: 88000.0,
+      pending_approvals_count: 2,
+      duewise_mode: 'approval',
+      is_autopilot: false,
+    },
+    insights: [
+      {
+        id: 'insight_overdue_critical_101',
+        category: 'risk_alert',
+        title: 'Critical Delinquency Exposure Alert',
+        description:
+          'Apex Logistics has an overdue balance of $8,500.00 (22 days past due, High Risk). Historical delay average: 35 days.',
+        urgency: 'high',
+        metric_label: 'Critical Delay',
+        metric_value: '22 days',
+        client_id: 15,
+        client_name: 'Apex Logistics',
+        invoice_id: 104,
+        invoice_number: 'INV-CRITICAL-01',
+      },
+      {
+        id: 'insight_channel_opt_15',
+        category: 'channel_optimization',
+        title: 'Smart Channel Switch: WhatsApp',
+        description:
+          'AI behavioral routing recommends WhatsApp for Apex Logistics to ensure highest read rate and prompt settlement.',
+        urgency: 'medium',
+        metric_label: 'Recommended Channel',
+        metric_value: 'WhatsApp',
+      },
+      {
+        id: 'insight_routine_overdue',
+        category: 'risk_alert',
+        title: 'Routine Low-Risk Overdue Accounts',
+        description:
+          '2 open invoices ($3,000.00 total) are in early overdue stage (avg 3 days past due) with clean customer history. Handled via automated courtesy follow-up.',
+        urgency: 'low',
+        metric_label: 'Low-Risk Overdue',
+        metric_value: '2 invoices',
+      },
+      {
+        id: 'insight_forecast_7d',
+        category: 'cash_flow',
+        title: '7-Day Cash Flow Projection',
+        description:
+          'AI predicts $45,000.00 in anticipated collections across the next 7 days based on client behavioral velocity.',
+        urgency: 'info',
+        metric_label: '7-Day Inflow',
+        metric_value: '$45,000.00',
+      },
+    ],
+    recommended_actions: [
+      {
+        id: 'action_remind_high_101',
+        type: 'quick_remind',
+        priority: 'critical',
+        title: 'Send AI WhatsApp Escalation',
+        description:
+          'Escalate Apex Logistics for invoice INV-CRITICAL-01 (USD 8,500.00, 22 days late) using firm, urgent recovery tone.',
+        badge: 'Critical Priority',
+        button_text: 'Send WhatsApp Now',
+        api_endpoint: '/api/duewise/invoices/104/remind',
+        method: 'POST',
+        payload: {
+          channel: 'whatsapp',
+          tone: 'firm',
+        },
+        invoice_id: 104,
+        invoice_number: 'INV-CRITICAL-01',
+        client_name: 'Apex Logistics',
+        amount: 8500.0,
+        currency: 'USD',
+      },
+      {
+        id: 'action_remind_routine_102',
+        type: 'quick_remind',
+        priority: 'medium',
+        title: 'Send Courtesy Email Reminder',
+        description:
+          'Send friendly reminder to Beta Corp for invoice INV-ROUTINE-01 (USD 1,200.00) using polite courtesy tone.',
+        badge: 'Routine Follow-up',
+        button_text: 'Send Courtesy Email',
+        api_endpoint: '/api/duewise/invoices/102/remind',
+        method: 'POST',
+        payload: {
+          channel: 'email',
+          tone: 'polite',
+        },
+        invoice_id: 102,
+        invoice_number: 'INV-ROUTINE-01',
+        client_name: 'Beta Corp',
+        amount: 1200.0,
+        currency: 'USD',
+      },
+      {
+        id: 'action_review_approvals',
+        type: 'review_approvals',
+        priority: 'medium',
+        title: 'Review 2 AI Reminders',
+        description: 'Approve queued reminders with one click or view individual drafts.',
+        badge: 'Pending Review',
+        button_text: 'Approve All Reminders',
+        api_endpoint: '/api/duewise/reminders/approvals/approve-all',
+        method: 'POST',
+        payload: {},
+        target_url: '/products/duewise/approvals',
+      },
+    ],
+  }
+}
+
 export const duewiseApi = {
+  /**
+   * GET /api/duewise/dashboard/ai-briefing
+   * Daily Executive Briefing & Health Card
+   */
+  async getAIBriefing(params = {}) {
+    const { refresh = false } = params
+    if (APP_CONFIG.useMockApi) {
+      await delay(450)
+      return { data: buildMockAIBriefing(refresh) }
+    }
+    const { data } = await axiosClient.get('/api/duewise/dashboard/ai-briefing', {
+      params: refresh ? { refresh: 'true' } : {},
+    })
+    return data
+  },
+
+  /**
+   * Dispatches 1-click recommended action from briefing
+   */
+  async executeRecommendedAction(action) {
+    const endpoint = action.api_endpoint
+    const method = (action.method || 'POST').toLowerCase()
+    const payload = action.payload || {}
+    if (APP_CONFIG.useMockApi) {
+      await delay(600)
+      return { message: `${action.title || 'Action'} executed successfully.` }
+    }
+    const { data } = await axiosClient[method](endpoint, payload)
+    return data
+  },
+
   /**
    * GET /api/duewise/entitlements
    * Plan limits, permissions, invoice quotas, and allowed reminder channels.
@@ -335,6 +625,12 @@ export const duewiseApi = {
       return paginate(items, query)
     }
     const { data } = await axiosClient.get('/api/duewise/invoices', { params: query })
+    if (data?.data && Array.isArray(data.data)) {
+      data.data = data.data.map((inv) => ({
+        ...inv,
+        ai_prediction: normalizeInvoiceAIPrediction(inv),
+      }))
+    }
     return data
   },
 
@@ -346,6 +642,7 @@ export const duewiseApi = {
       return {
         data: {
           ...found,
+          ai_prediction: normalizeInvoiceAIPrediction(found),
           line_items: found.line_items || [
             {
               id: 1,
@@ -359,6 +656,9 @@ export const duewiseApi = {
       }
     }
     const { data } = await axiosClient.get(`/api/duewise/invoices/${id}`)
+    if (data?.data) {
+      data.data.ai_prediction = normalizeInvoiceAIPrediction(data.data)
+    }
     return data
   },
 
@@ -1063,6 +1363,7 @@ let mockApprovals = [
 export const duewiseKeys = {
   all: ['duewise'],
   dashboard: () => [...duewiseKeys.all, 'dashboard'],
+  aiBriefing: () => [...duewiseKeys.all, 'ai-briefing'],
   entitlements: () => [...duewiseKeys.all, 'entitlements'],
   forecast: () => [...duewiseKeys.all, 'forecast'],
   invoices: (filters) => [...duewiseKeys.all, 'invoices', filters ?? {}],

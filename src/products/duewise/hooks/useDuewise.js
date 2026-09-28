@@ -11,6 +11,44 @@ export function useDuewiseDashboard() {
   })
 }
 
+/** GET /api/duewise/dashboard/ai-briefing — Daily AI Intelligence Briefing & Health Card */
+export function useDuewiseAIBriefing(options = {}) {
+  return useQuery({
+    queryKey: duewiseKeys.aiBriefing(),
+    queryFn: () => duewiseApi.getAIBriefing(),
+    select: (res) => res?.data ?? res,
+    staleTime: 60_000,
+    ...options,
+  })
+}
+
+/** Manual refresh for AI briefing with 5-minute cooldown handling (?refresh=true) */
+export function useRefreshAIBriefing() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => duewiseApi.getAIBriefing({ refresh: true }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(duewiseKeys.aiBriefing(), data)
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.refreshAIBriefing' }),
+  })
+}
+
+/** Dispatches 1-click recommended action from the briefing card */
+export function useExecuteRecommendedAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (action) => duewiseApi.executeRecommendedAction(action),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.aiBriefing() })
+      queryClient.invalidateQueries({ queryKey: duewiseKeys.dashboard() })
+      queryClient.invalidateQueries({ queryKey: [...duewiseKeys.all, 'invoices'] })
+    },
+    onError: (error) => handleError(error, { context: 'duewise.executeRecommendedAction' }),
+  })
+}
+
 /** GET /api/duewise/entitlements — permission flags, cycle usage, quota limits & allowed channels */
 export function useDuewiseEntitlements(options = {}) {
   return useQuery({
