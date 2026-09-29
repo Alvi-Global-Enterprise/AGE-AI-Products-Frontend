@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles,
@@ -27,6 +28,62 @@ import {
   useExecuteRecommendedAction,
 } from '@/products/duewise/hooks/useDuewise'
 import { getUserMessage } from '@/shared/errors/errorHandler'
+
+function AiTypingText({
+  text = '',
+  className,
+  speed = 16,
+  startDelay = 280,
+  cursorClassName = 'bg-teal-300',
+}) {
+  const full = String(text || '')
+  const [shown, setShown] = useState('')
+  const [done, setDone] = useState(false)
+  const indexRef = useRef(0)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    indexRef.current = 0
+    setShown('')
+    setDone(false)
+
+    if (!full) {
+      setDone(true)
+      return undefined
+    }
+
+    const start = window.setTimeout(() => {
+      timerRef.current = window.setInterval(() => {
+        indexRef.current += 1
+        const next = full.slice(0, indexRef.current)
+        setShown(next)
+        if (indexRef.current >= full.length) {
+          window.clearInterval(timerRef.current)
+          timerRef.current = null
+          setDone(true)
+        }
+      }, speed)
+    }, startDelay)
+
+    return () => {
+      window.clearTimeout(start)
+      if (timerRef.current) window.clearInterval(timerRef.current)
+    }
+  }, [full, speed, startDelay])
+
+  return (
+    <p className={className} aria-live="polite">
+      {shown}
+      <span
+        className={cn(
+          'ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] align-baseline',
+          done ? 'bg-transparent' : cn('animate-pulse', cursorClassName)
+        )}
+        aria-hidden
+      />
+    </p>
+  )
+}
 
 function HealthDial({ score = 85, tier = 'optimal', label = 'Optimal Cash Flow', summaryMetric = '92% on-schedule' }) {
   const clampedScore = Math.max(0, Math.min(100, Number(score) || 0))
@@ -102,91 +159,203 @@ function HealthDial({ score = 85, tier = 'optimal', label = 'Optimal Cash Flow',
 }
 
 function UrgencyInsightChip({ insight }) {
-  const urgency = insight.urgency || 'info'
+  const urgency = String(insight.urgency || 'info').toLowerCase()
 
   const config = {
     high: {
-      border: 'border-rose-200 bg-rose-50/70 text-rose-950',
-      badge: 'border-rose-300 bg-rose-100 text-rose-800',
+      border: 'border-rose-200/90 bg-white',
+      accent: 'bg-rose-500',
+      badge: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200',
+      iconWrap: 'bg-rose-50 text-rose-600',
       icon: AlertTriangle,
-      iconColor: 'text-rose-600',
     },
     medium: {
-      border: 'border-amber-200 bg-amber-50/70 text-amber-950',
-      badge: 'border-amber-300 bg-amber-100 text-amber-800',
+      border: 'border-amber-200/90 bg-white',
+      accent: 'bg-amber-500',
+      badge: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+      iconWrap: 'bg-amber-50 text-amber-600',
       icon: Zap,
-      iconColor: 'text-amber-600',
     },
     low: {
-      border: 'border-sky-200 bg-sky-50/70 text-sky-950',
-      badge: 'border-sky-300 bg-sky-100 text-sky-800',
+      border: 'border-sky-200/90 bg-white',
+      accent: 'bg-sky-500',
+      badge: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
+      iconWrap: 'bg-sky-50 text-sky-600',
       icon: Clock,
-      iconColor: 'text-sky-600',
     },
     info: {
-      border: 'border-emerald-200 bg-emerald-50/70 text-emerald-950',
-      badge: 'border-emerald-300 bg-emerald-100 text-emerald-800',
+      border: 'border-emerald-200/90 bg-white',
+      accent: 'bg-emerald-500',
+      badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+      iconWrap: 'bg-emerald-50 text-emerald-600',
       icon: TrendingUp,
-      iconColor: 'text-emerald-600',
     },
   }[urgency] || {
-    border: 'border-slate-200 bg-slate-50 text-slate-900',
-    badge: 'border-slate-300 bg-slate-100 text-slate-700',
+    border: 'border-slate-200 bg-white',
+    accent: 'bg-slate-400',
+    badge: 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200',
+    iconWrap: 'bg-slate-50 text-slate-500',
     icon: Info,
-    iconColor: 'text-slate-600',
   }
 
   const IconComponent = config.icon
+  const hasMetric = Boolean(insight.metric_label || insight.metric_value)
+  const hasMeta = Boolean(insight.client_name || insight.invoice_number)
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'group flex flex-col justify-between rounded-2xl border p-4 transition-all duration-200 hover:shadow-sm',
+        'relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border shadow-sm transition hover:shadow-md',
         config.border
       )}
     >
-      <div>
-        <div className="flex items-center justify-between gap-2">
+      <div className={cn('h-1 w-full shrink-0', config.accent)} />
+
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        {/* Top row: icon + urgency — left aligned */}
+        <div className="flex items-center gap-2.5">
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider',
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
+              config.iconWrap
+            )}
+          >
+            <IconComponent className="h-4 w-4" />
+          </span>
+          <span
+            className={cn(
+              'inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
               config.badge
             )}
           >
-            <IconComponent className="h-3 w-3 shrink-0" />
             {urgency} urgency
           </span>
+        </div>
 
-          {insight.metric_label && insight.metric_value && (
-            <span className="text-xs font-semibold text-slate-700">
-              {insight.metric_label}: <strong className="text-slate-900">{insight.metric_value}</strong>
-            </span>
+        {/* Metric block — clear left alignment */}
+        {hasMetric && (
+          <div className="rounded-xl border border-slate-100 bg-slate-50/90 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              {insight.metric_label || 'Metric'}
+            </p>
+            <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
+              {insight.metric_value || '—'}
+            </p>
+          </div>
+        )}
+
+        {/* Title + description — consistent left type scale */}
+        <div className="min-w-0 flex-1 space-y-1.5 text-left">
+          <h4 className="text-sm font-semibold leading-snug tracking-tight text-slate-900">
+            {insight.title}
+          </h4>
+          {insight.description && (
+            <p className="text-xs leading-relaxed text-slate-500 line-clamp-3">
+              {insight.description}
+            </p>
           )}
         </div>
 
-        <h4 className="mt-2.5 text-sm font-semibold tracking-tight text-slate-900">
-          {insight.title}
-        </h4>
-
-        <p className="mt-1 text-xs leading-relaxed text-slate-600">
-          {insight.description}
-        </p>
+        {/* Footer meta */}
+        {hasMeta && (
+          <div className="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-0.5 border-t border-slate-100 pt-3 text-[11px] leading-none text-slate-500">
+            {insight.client_name && (
+              <span className="font-medium text-slate-700">{insight.client_name}</span>
+            )}
+            {insight.client_name && insight.invoice_number && (
+              <span className="text-slate-300">·</span>
+            )}
+            {insight.invoice_number && <span>{insight.invoice_number}</span>}
+          </div>
+        )}
       </div>
-
-      {(insight.client_name || insight.invoice_number) && (
-        <div className="mt-3 flex items-center gap-2 border-t border-slate-200/60 pt-2 text-[11px] text-slate-500">
-          {insight.client_name && <span className="font-medium text-slate-700">{insight.client_name}</span>}
-          {insight.client_name && insight.invoice_number && <span>•</span>}
-          {insight.invoice_number && <span>{insight.invoice_number}</span>}
-        </div>
-      )}
     </motion.div>
   )
 }
 
+
+function normalizeActionHaystack(action) {
+  return [
+    action?.id,
+    action?.type,
+    action?.button_text,
+    action?.buttonText,
+    action?.cta_text,
+    action?.cta,
+    action?.title,
+    action?.badge,
+    action?.target_url,
+    action?.api_endpoint,
+  ]
+    .filter(Boolean)
+    .map((v) =>
+      String(v)
+        .toLowerCase()
+        .replace(/[\u2010-\u2015]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim()
+    )
+    .join(' ')
+}
+
+function normalizeAppPath(url) {
+  if (!url) return null
+  let path = String(url).trim()
+  if (!path) return null
+
+  // Absolute URL → pathname
+  try {
+    if (/^https?:\/\//i.test(path)) {
+      path = new URL(path).pathname
+    }
+  } catch {
+    // keep raw path
+  }
+
+  if (path.includes('cashflow') || path.includes('cash-flow')) {
+    return '/products/duewise/cashflow'
+  }
+  if (path.startsWith('/duewise/')) {
+    return `/products${path}`
+  }
+  return path
+}
+
+function getActionNavigatePath(action) {
+  if (!action) return null
+
+  const hay = normalizeActionHaystack(action)
+  const target = normalizeAppPath(action.target_url)
+
+  // Explicit cashflow / forecast destinations
+  if (target && (target.includes('cashflow') || hay.includes('forecast'))) {
+    return target.includes('cashflow') ? '/products/duewise/cashflow' : target
+  }
+
+  const looksLikeForecast =
+    hay.includes('forecast') ||
+    hay.includes('cashflow') ||
+    hay.includes('cash-flow') ||
+    hay.includes('view forecast') ||
+    (hay.includes('cash flow') &&
+      (hay.includes('view') || hay.includes('explore') || hay.includes('30')))
+
+  if (looksLikeForecast) {
+    return '/products/duewise/cashflow'
+  }
+
+  // Navigate-only cards (no API)
+  if (action.target_url && !action.api_endpoint) {
+    return normalizeAppPath(action.target_url)
+  }
+
+  return null
+}
+
 export function AIDailyBriefingCard() {
+  const navigate = useNavigate()
   const { data: briefingData, isLoading, isError, error } = useDuewiseAIBriefing()
   const refreshBriefing = useRefreshAIBriefing()
   const executeAction = useExecuteRecommendedAction()
@@ -209,11 +378,28 @@ export function AIDailyBriefingCard() {
   }
 
   const handleActionClick = async (action) => {
+    const navPath = getActionNavigatePath(action)
+    if (navPath) {
+      navigate(navPath)
+      return
+    }
+
+    // Hard fallback if button label is forecast-related
+    const label = String(action?.button_text || action?.buttonText || action?.title || '')
+      .toLowerCase()
+      .replace(/[\u2010-\u2015]/g, '-')
+    if (label.includes('forecast') || label.includes('cash flow')) {
+      navigate('/products/duewise/cashflow')
+      return
+    }
+
     setActiveActionId(action.id)
     try {
       const res = await executeAction.mutateAsync(action)
       const msg = res?.message || `AI recommendation executed: ${action.button_text}`
       showToast(msg)
+      const afterUrl = normalizeAppPath(action.target_url)
+      if (afterUrl) navigate(afterUrl)
     } catch (err) {
       showToast(getUserMessage(err) || 'Failed to dispatch AI recommended action.')
     } finally {
@@ -279,7 +465,7 @@ export function AIDailyBriefingCard() {
   return (
     <Card className="relative overflow-hidden border-indigo-100 bg-gradient-to-b from-white via-indigo-50/20 to-slate-50/40 shadow-sm transition hover:shadow-md">
       {/* Top subtle indigo glow accent bar */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-green-300 via-green-400 to-emerald-500" />
+      <div className="h-1.5 w-full gradient-brand" />
 
       <CardContent className="space-y-6 p-6 sm:p-7">
         {/* 1. Header with live AI badge & sleek Refresh button */}
@@ -350,16 +536,60 @@ export function AIDailyBriefingCard() {
             />
           </div>
 
-          {/* AI Natural Language Briefing reading card */}
+          {/* AI Natural Language Briefing — light AI panel */}
           <div className="space-y-4 lg:col-span-8 lg:pl-3">
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-800">
-                <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                <span>Executive Intelligence Summary</span>
+            <div className="relative overflow-hidden rounded-2xl border border-teal-200/80 bg-gradient-to-br from-white via-teal-50/40 to-emerald-50/30 shadow-sm">
+              <div className="absolute inset-y-0 left-0 w-1 gradient-brand" />
+
+              <div className="relative space-y-3 p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-9 w-9 items-center justify-center rounded-xl gradient-brand text-white shadow-sm shadow-emerald-600/20">
+                      <Sparkles className="h-4 w-4" />
+                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
+                    </span>
+                    <div className="min-w-0 text-left">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
+                        DueWise AI
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Executive Intelligence Summary
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />
+                      </span>
+                      AI output
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                      {isGeminiAI ? 'Gemini synthesized' : 'Model synthesized'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200/80 bg-white/90 px-3.5 py-3">
+                  <AiTypingText
+                    key={briefing.executive_summary}
+                    text={briefing.executive_summary}
+                    speed={14}
+                    cursorClassName="bg-teal-500"
+                    className="min-h-[4.5rem] text-sm leading-relaxed text-slate-700"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[10px] text-slate-400">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-teal-600" />
+                    AI-generated from live receivables telemetry
+                  </span>
+                  <span className="font-medium text-slate-400">Not a human-written note</span>
+                </div>
               </div>
-              <p className="mt-2 text-sm leading-relaxed font-normal text-slate-700">
-                {briefing.executive_summary}
-              </p>
             </div>
 
             {/* 4. Quick Stat Pills */}
@@ -434,17 +664,22 @@ export function AIDailyBriefingCard() {
 
         {/* 5. Behavioral Insight Chips (Partitioned Risk View) */}
         {insights.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold tracking-tight text-slate-900">
-                Behavioral Velocity & Risk Insights
-              </h3>
-              <span className="text-xs text-slate-400">
+          <div className="space-y-3.5">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div className="min-w-0 text-left">
+                <h3 className="text-sm font-semibold tracking-tight text-slate-900">
+                  Behavioral Velocity & Risk Insights
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Ranked signals from overdue behavior and payment velocity
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                 {insights.length} insight{insights.length === 1 ? '' : 's'} identified
               </span>
             </div>
 
-            <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid auto-rows-fr gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
               {insights.map((insight) => (
                 <UrgencyInsightChip key={insight.id || insight.title} insight={insight} />
               ))}
@@ -475,7 +710,11 @@ export function AIDailyBriefingCard() {
                 const isCriticalAction = action.priority === 'critical'
                 const isWhatsApp =
                   action.payload?.channel === 'whatsapp' ||
-                  action.button_text?.toLowerCase().includes('whatsapp')
+                  String(action.button_text || '')
+                    .toLowerCase()
+                    .includes('whatsapp')
+                const navPath = getActionNavigatePath(action)
+                const isForecastNav = navPath === '/products/duewise/cashflow'
 
                 return (
                   <div
@@ -489,7 +728,9 @@ export function AIDailyBriefingCard() {
                             'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
                             isCriticalAction
                               ? 'bg-rose-100 text-rose-800'
-                              : 'bg-indigo-100 text-indigo-800'
+                              : isForecastNav
+                                ? 'bg-teal-100 text-teal-800'
+                                : 'bg-indigo-100 text-indigo-800'
                           )}
                         >
                           {action.badge || action.priority}
@@ -497,7 +738,9 @@ export function AIDailyBriefingCard() {
 
                         {action.amount != null && (
                           <span className="text-xs font-bold text-slate-900">
-                            {formatCurrency(action.amount, { currency: action.currency || currency })}
+                            {formatCurrency(action.amount, {
+                              currency: action.currency || currency,
+                            })}
                           </span>
                         )}
                       </div>
@@ -506,30 +749,33 @@ export function AIDailyBriefingCard() {
                         {action.title}
                       </h4>
 
-                      <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">
                         {action.description}
                       </p>
 
                       {(action.client_name || action.invoice_number) && (
                         <p className="mt-2 text-[11px] font-medium text-slate-600">
-                          {action.client_name} {action.invoice_number ? `· ${action.invoice_number}` : ''}
+                          {action.client_name}{' '}
+                          {action.invoice_number ? `· ${action.invoice_number}` : ''}
                         </p>
                       )}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-100">
+                    <div className="mt-4 border-t border-slate-100 pt-3">
                       <Button
                         type="button"
                         size="sm"
-                        disabled={isLoadingThis || executeAction.isPending}
+                        disabled={isLoadingThis || (!navPath && executeAction.isPending)}
                         onClick={() => handleActionClick(action)}
                         className={cn(
-                          'w-full shadow-sm font-semibold',
+                          'w-full font-semibold shadow-sm',
                           isWhatsApp
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            ? '!bg-emerald-600 text-white hover:!bg-emerald-700'
                             : isCriticalAction
-                              ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              ? '!bg-rose-600 text-white hover:!bg-rose-700'
+                              : isForecastNav
+                                ? '!bg-teal-600 text-white hover:!bg-teal-700'
+                                : '!bg-indigo-600 text-white hover:!bg-indigo-700'
                         )}
                       >
                         {isLoadingThis ? (
@@ -539,7 +785,9 @@ export function AIDailyBriefingCard() {
                           </>
                         ) : (
                           <>
-                            {isWhatsApp ? (
+                            {isForecastNav ? (
+                              <TrendingUp className="mr-1.5 h-3.5 w-3.5" />
+                            ) : isWhatsApp ? (
                               <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
                             ) : (
                               <Mail className="mr-1.5 h-3.5 w-3.5" />
